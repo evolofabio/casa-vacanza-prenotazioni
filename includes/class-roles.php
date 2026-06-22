@@ -14,6 +14,13 @@ class Roles {
 	const ROLE = 'cvp_gestore';
 
 	/**
+	 * Evita ricorsione infinita in map_meta_cap.
+	 *
+	 * @var bool
+	 */
+	private static $mapping_caps = false;
+
+	/**
 	 * Inizializza hook.
 	 */
 	public static function init() {
@@ -86,6 +93,22 @@ class Roles {
 	}
 
 	/**
+	 * Verifica capability senza richiamare user_can (evita loop in map_meta_cap).
+	 *
+	 * @param int    $user_id ID utente.
+	 * @param string $cap     Capability.
+	 * @return bool
+	 */
+	private static function user_has_cap_direct( $user_id, $cap ) {
+		$user = get_userdata( $user_id );
+		if ( ! $user || empty( $user->allcaps ) ) {
+			return false;
+		}
+
+		return ! empty( $user->allcaps[ $cap ] );
+	}
+
+	/**
 	 * Limita il gestore ai soli CPT del plugin.
 	 *
 	 * @param array  $caps    Capability richieste.
@@ -95,11 +118,19 @@ class Roles {
 	 * @return array
 	 */
 	public static function map_meta_cap( $caps, $cap, $user_id, $args ) {
-		if ( user_can( $user_id, 'manage_options' ) ) {
+		if ( self::$mapping_caps ) {
 			return $caps;
 		}
 
-		if ( ! user_can( $user_id, 'cvp_view_dashboard' ) ) {
+		self::$mapping_caps = true;
+
+		if ( self::user_has_cap_direct( $user_id, 'manage_options' ) ) {
+			self::$mapping_caps = false;
+			return $caps;
+		}
+
+		if ( ! self::user_has_cap_direct( $user_id, 'cvp_view_dashboard' ) ) {
+			self::$mapping_caps = false;
 			return $caps;
 		}
 
@@ -108,18 +139,22 @@ class Roles {
 		$post         = $post_id ? get_post( $post_id ) : null;
 
 		if ( $post && ! in_array( $post->post_type, $plugin_types, true ) ) {
+			self::$mapping_caps = false;
 			return array( 'do_not_allow' );
 		}
 
 		if ( in_array( $cap, array( 'edit_post', 'delete_post', 'read_post' ), true ) && $post ) {
-			if ( Post_Types::APPARTAMENTO === $post->post_type && user_can( $user_id, 'cvp_manage_apartments' ) ) {
+			if ( Post_Types::APPARTAMENTO === $post->post_type && self::user_has_cap_direct( $user_id, 'cvp_manage_apartments' ) ) {
+				self::$mapping_caps = false;
 				return array( 'edit_posts' );
 			}
-			if ( Post_Types::PRENOTAZIONE === $post->post_type && user_can( $user_id, 'cvp_manage_bookings' ) ) {
+			if ( Post_Types::PRENOTAZIONE === $post->post_type && self::user_has_cap_direct( $user_id, 'cvp_manage_bookings' ) ) {
+				self::$mapping_caps = false;
 				return array( 'edit_posts' );
 			}
 		}
 
+		self::$mapping_caps = false;
 		return $caps;
 	}
 
