@@ -23,16 +23,46 @@ class GitHub_Updater {
 
 		add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'inject_update' ) );
 		add_filter( 'plugins_api', array( __CLASS__, 'plugin_info' ), 10, 3 );
+		add_filter( 'upgrader_pre_install', array( __CLASS__, 'block_git_install_upgrade' ), 10, 2 );
 		add_filter( 'upgrader_post_install', array( __CLASS__, 'fix_install_directory' ), 10, 3 );
 		add_action( 'admin_init', array( __CLASS__, 'handle_force_check' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'git_update_admin_notice' ) );
 	}
 
 	public static function get_plugin_slug() {
 		return CVP_PLUGIN_BASENAME;
 	}
 
+	public static function get_plugin_folder() {
+		return dirname( self::get_plugin_slug() );
+	}
+
 	public static function get_repo_url() {
 		return 'https://github.com/' . self::GITHUB_OWNER . '/' . self::GITHUB_REPO;
+	}
+
+	/**
+	 * Installazione Git o symlink: l'updater WordPress non può sovrascrivere .git.
+	 *
+	 * @return bool
+	 */
+	public static function is_git_install() {
+		$plugin_path = WP_PLUGIN_DIR . '/' . self::get_plugin_folder();
+
+		if ( is_link( $plugin_path ) ) {
+			return true;
+		}
+
+		if ( is_dir( CVP_PLUGIN_DIR . '.git' ) ) {
+			return true;
+		}
+
+		$real = realpath( CVP_PLUGIN_DIR );
+		if ( $real && is_dir( $real . '/.git' ) ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	public static function handle_force_check() {
@@ -80,15 +110,7 @@ class GitHub_Updater {
 			return null;
 		}
 
-		$package = '';
-		if ( ! empty( $data['assets'] ) ) {
-			foreach ( $data['assets'] as $asset ) {
-				if ( ! empty( $asset['browser_download_url'] ) && preg_match( '/\.zip$/i', $asset['name'] ?? '' ) ) {
-					$package = $asset['browser_download_url'];
-					break;
-				}
-			}
-		}
+		$package = self::pick_release_zip( $data['assets'] ?? array() );
 
 		if ( ! $package && ! empty( $data['zipball_url'] ) ) {
 			$package = $data['zipball_url'];
@@ -101,6 +123,41 @@ class GitHub_Updater {
 			'notes'        => $data['body'] ?? '',
 			'release_date' => $data['published_at'] ?? '',
 		);
+	}
+
+	/**
+	 * Preferisce lo zip pulito allegato alla release (senza .git).
+	 *
+	 * @param array $assets Asset release GitHub.
+	 * @return string
+	 */
+	private static function pick_release_zip( $assets ) {
+		if ( empty( $assets ) || ! is_array( $assets ) ) {
+			return '';
+		}
+
+		$preferred = '';
+		$fallback  = '';
+
+		foreach ( $assets as $asset ) {
+			$name = $asset['name'] ?? '';
+			$url  = $asset['browser_download_url'] ?? '';
+
+			if ( ! $url || ! preg_match( '/\.zip$/i', $name ) ) {
+				continue;
+			}
+
+			if ( false !== stripos( $name, 'casa-vacanza-prenotazioni' ) ) {
+				$preferred = $url;
+				break;
+			}
+
+			if ( ! $fallback ) {
+				$fallback = $url;
+			}
+		}
+
+		return $preferred ?: $fallback;
 	}
 
 	private static function fetch_latest_tag() {
@@ -144,7 +201,7 @@ class GitHub_Updater {
 	}
 
 	public static function inject_update( $transient ) {
-		if ( ! is_object( $transient ) ) {
+		if ( ! is_object( $transient ) || self::is_git_install() ) {
 			return $transient;
 		}
 
@@ -159,7 +216,7 @@ class GitHub_Updater {
 
 		$slug = self::get_plugin_slug();
 		$transient->response[ $slug ] = (object) array(
-			'slug'        => dirname( $slug ),
+			'slug'        => self::get_plugin_folder(),
 			'plugin'      => $slug,
 			'new_version' => $remote['version'],
 			'url'         => $remote['url'],
@@ -170,8 +227,55 @@ class GitHub_Updater {
 		return $transient;
 	}
 
+	/**
+	 * Blocca aggiornamento WordPress su installazioni Git.
+	 *
+	 * @param bool|WP_Error $response Risposta corrente.
+	 * @param array         $hook_extra Dati hook.
+	 * @return bool|WP_Error
+	 */
+	public static function block_git_install_upgrade( $response, $hook_extra ) {
+		if ( empty( $hook_extra['plugin'] ) || self::get_plugin_slug() !== $hook_extra['plugin'] ) {
+			return $response;
+		}
+
+		if ( ! self::is_git_install() ) {
+			return $response;
+		}
+
+		return new \WP_Error(
+			'cvp_git_install',
+			__( 'Questo plugin è installato via Git. Non usare "Aggiorna" da WordPress: esegui git pull nella cartella del plugin.', 'casa-vacanza-prenotazioni' )
+		);
+	}
+
+	public static function git_update_admin_notice() {
+		if ( ! current_user_can( 'update_plugins' ) || ! self::is_git_install() ) {
+			return;
+		}
+
+		$remote = self::get_remote_release();
+		if ( ! $remote || ! version_compare( CVP_VERSION, $remote['version'], '<' ) ) {
+			return;
+		}
+
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || ! in_array( $screen->id, array( 'plugins', 'toplevel_page_cvp-dashboard', 'casa-vacanza_page_cvp-settings' ), true ) ) {
+			return;
+		}
+
+		echo '<div class="notice notice-warning"><p>';
+		printf(
+			/* translators: 1: current version, 2: latest version */
+			esc_html__( 'Casa Vacanza Prenotazioni: disponibile la versione %2$s (installata %1$s). Installazione Git rilevata: aggiorna con git pull, non da Plugin → Aggiorna.', 'casa-vacanza-prenotazioni' ),
+			esc_html( CVP_VERSION ),
+			esc_html( $remote['version'] )
+		);
+		echo '</p></div>';
+	}
+
 	public static function plugin_info( $result, $action, $args ) {
-		if ( 'plugin_information' !== $action || empty( $args->slug ) || dirname( self::get_plugin_slug() ) !== $args->slug ) {
+		if ( 'plugin_information' !== $action || empty( $args->slug ) || self::get_plugin_folder() !== $args->slug ) {
 			return $result;
 		}
 
@@ -182,7 +286,7 @@ class GitHub_Updater {
 
 		$info                = new \stdClass();
 		$info->name          = 'Casa Vacanza Prenotazioni';
-		$info->slug          = dirname( self::get_plugin_slug() );
+		$info->slug          = self::get_plugin_folder();
 		$info->version       = $remote['version'];
 		$info->author        = '<a href="https://github.com/evolofabio">Evolo Digital Studio</a>';
 		$info->homepage      = self::get_repo_url();
@@ -202,17 +306,30 @@ class GitHub_Updater {
 			return $response;
 		}
 
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
 		global $wp_filesystem;
 		if ( empty( $result['destination'] ) || ! $wp_filesystem ) {
 			return $response;
 		}
 
-		$destination = WP_PLUGIN_DIR . '/' . dirname( self::get_plugin_slug() );
-		if ( $result['destination'] !== $destination ) {
-			if ( $wp_filesystem->exists( $destination ) ) {
+		$destination = WP_PLUGIN_DIR . '/' . self::get_plugin_folder();
+		$source      = $result['destination'];
+
+		if ( $source !== $destination ) {
+			// Non tentare di cancellare .git: rimuovi solo i file del plugin.
+			if ( $wp_filesystem->exists( $destination ) && ! self::is_git_install() ) {
 				$wp_filesystem->delete( $destination, true );
 			}
-			$wp_filesystem->move( $result['destination'], $destination );
+
+			if ( $wp_filesystem->exists( $destination ) ) {
+				self::merge_directory( $wp_filesystem, $source, $destination );
+				$wp_filesystem->delete( $source, true );
+			} else {
+				$wp_filesystem->move( $source, $destination );
+			}
 		}
 
 		if ( is_plugin_active( self::get_plugin_slug() ) ) {
@@ -222,15 +339,51 @@ class GitHub_Updater {
 		return $response;
 	}
 
+	/**
+	 * Copia ricorsiva senza toccare .git.
+	 *
+	 * @param \WP_Filesystem_Base $filesystem Filesystem WP.
+	 * @param string              $source     Sorgente.
+	 * @param string              $dest       Destinazione.
+	 */
+	private static function merge_directory( $filesystem, $source, $dest ) {
+		$items = $filesystem->dirlist( $source, true, false );
+		if ( ! is_array( $items ) ) {
+			return;
+		}
+
+		foreach ( $items as $name => $item ) {
+			if ( '.git' === $name ) {
+				continue;
+			}
+
+			$from = trailingslashit( $source ) . $name;
+			$to   = trailingslashit( $dest ) . $name;
+
+			if ( 'd' === ( $item['type'] ?? '' ) ) {
+				if ( ! $filesystem->exists( $to ) ) {
+					$filesystem->mkdir( $to );
+				}
+				self::merge_directory( $filesystem, $from, $to );
+				continue;
+			}
+
+			if ( $filesystem->exists( $to ) ) {
+				$filesystem->delete( $to );
+			}
+			$filesystem->copy( $from, $to );
+		}
+	}
+
 	public static function get_update_status( $force_refresh = false ) {
 		$remote = self::get_remote_release( $force_refresh );
-		$status = array(
+
+		return array(
 			'current'    => CVP_VERSION,
 			'latest'     => $remote ? $remote['version'] : CVP_VERSION,
 			'has_update' => $remote && version_compare( CVP_VERSION, $remote['version'], '<' ),
 			'remote'     => $remote,
-			'is_git'     => is_dir( CVP_PLUGIN_DIR . '.git' ),
+			'is_git'     => self::is_git_install(),
 		);
-		return $status;
 	}
 }

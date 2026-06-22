@@ -4,7 +4,7 @@ Tags: prenotazioni, booking, vacation rental, casa vacanza, elementor
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPLv2 or later
 
 Sistema completo di prenotazioni per case vacanza.

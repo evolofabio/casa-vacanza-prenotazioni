@@ -37,7 +37,13 @@ $placeholders = '{nome}, {email}, {appartamento}, {check_in}, {check_out}, {ospi
 			</tr>
 		</table>
 		<?php if ( ! empty( $update['is_git'] ) ) : ?>
-			<div class="notice notice-info inline"><p><?php esc_html_e( 'Installazione Git: usa git pull per aggiornare.', 'casa-vacanza-prenotazioni' ); ?></p></div>
+			<div class="notice notice-info inline">
+				<p>
+					<strong><?php esc_html_e( 'Installazione Git rilevata', 'casa-vacanza-prenotazioni' ); ?></strong><br>
+					<?php esc_html_e( 'Non usare Plugin → Aggiorna: WordPress non può sovrascrivere la cartella .git.', 'casa-vacanza-prenotazioni' ); ?>
+				</p>
+				<p><code>cd wp-content/plugins/casa-vacanza-prenotazioni && git pull origin main</code></p>
+			</div>
 		<?php elseif ( ! empty( $update['has_update'] ) ) : ?>
 			<div class="notice notice-warning inline"><p><?php esc_html_e( 'Aggiornamento disponibile.', 'casa-vacanza-prenotazioni' ); ?> <a href="<?php echo esc_url( admin_url( 'plugins.php' ) ); ?>"><?php esc_html_e( 'Plugin → Aggiorna', 'casa-vacanza-prenotazioni' ); ?></a></p></div>
 		<?php else : ?>
