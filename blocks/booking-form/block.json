@@ -1,0 +1,20 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "cvp/booking-form",
+	"title": "Form Prenotazione",
+	"category": "widgets",
+	"icon": "calendar-alt",
+	"description": "Form per richiedere una prenotazione.",
+	"keywords": ["casa vacanza", "prenotazione", "form"],
+	"textdomain": "casa-vacanza-prenotazioni",
+	"attributes": {
+		"apartmentId": {
+			"type": "number",
+			"default": 0
+		}
+	},
+	"supports": {
+		"html": false
+	}
+}

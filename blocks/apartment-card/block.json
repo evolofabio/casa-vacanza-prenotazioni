@@ -1,0 +1,24 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "cvp/apartment-card",
+	"title": "Card Appartamento",
+	"category": "widgets",
+	"icon": "building",
+	"description": "Card con galleria, prezzo, descrizione e bottone prenotazione.",
+	"keywords": ["casa vacanza", "appartamento"],
+	"textdomain": "casa-vacanza-prenotazioni",
+	"attributes": {
+		"apartmentId": {
+			"type": "number",
+			"default": 0
+		},
+		"showBooking": {
+			"type": "boolean",
+			"default": true
+		}
+	},
+	"supports": {
+		"html": false
+	}
+}

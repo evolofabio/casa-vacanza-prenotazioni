@@ -1,0 +1,21 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "cvp/search-bar",
+	"title": "Barra Ricerca Casa Vacanza",
+	"category": "widgets",
+	"icon": "search",
+	"description": "Barra di ricerca con check-in, check-out e numero ospiti.",
+	"keywords": ["casa vacanza", "ricerca", "prenotazioni"],
+	"textdomain": "casa-vacanza-prenotazioni",
+	"attributes": {
+		"resultsPage": {
+			"type": "number",
+			"default": 0
+		}
+	},
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"]
+	}
+}

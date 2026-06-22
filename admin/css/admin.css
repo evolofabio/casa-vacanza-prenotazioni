@@ -1,0 +1,144 @@
+/* Admin styles */
+.cvp-admin-wrap .cvp-stats-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+	gap: 16px;
+	margin: 20px 0 30px;
+}
+
+.cvp-stat-card {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 8px;
+	padding: 20px;
+	box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+
+.cvp-stat-card__number {
+	display: block;
+	font-size: 2rem;
+	font-weight: 700;
+	line-height: 1.2;
+}
+
+.cvp-stat-card__label {
+	display: block;
+	color: #646970;
+	margin-top: 4px;
+}
+
+.cvp-stat-card__link {
+	display: inline-block;
+	margin-top: 10px;
+	text-decoration: none;
+}
+
+.cvp-stat-card--warning .cvp-stat-card__number { color: #dba617; }
+.cvp-stat-card--success .cvp-stat-card__number { color: #00a32a; }
+
+.cvp-admin-panel {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	border-radius: 8px;
+	padding: 20px;
+}
+
+.cvp-status {
+	display: inline-block;
+	padding: 3px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.cvp-status--in_attesa { background: #fcf3cf; color: #9a7b0a; }
+.cvp-status--confermata { background: #d4edda; color: #155724; }
+.cvp-status--rifiutata { background: #f8d7da; color: #721c24; }
+.cvp-status--annullata { background: #e2e3e5; color: #383d41; }
+
+.cvp-actions .button { margin: 2px 4px 2px 0; }
+
+.cvp-gallery-admin .cvp-gallery-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	list-style: none;
+	margin: 0 0 12px;
+	padding: 0;
+}
+
+.cvp-gallery-admin .cvp-gallery-list li {
+	position: relative;
+	width: 80px;
+	height: 80px;
+}
+
+.cvp-gallery-admin .cvp-gallery-list img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	border-radius: 4px;
+}
+
+.cvp-gallery-admin .cvp-remove-image {
+	position: absolute;
+	top: -6px;
+	right: -6px;
+	width: 20px;
+	height: 20px;
+	border: none;
+	border-radius: 50%;
+	background: #d63638;
+	color: #fff;
+	cursor: pointer;
+	line-height: 1;
+}
+
+.cvp-blocked-dates {
+	margin: 0;
+	padding-left: 18px;
+}
+
+.cvp-blocked-dates li { margin-bottom: 8px; }
+
+.cvp-admin-panel--shortcodes {
+	margin-bottom: 24px;
+}
+
+.cvp-shortcodes-table code {
+	font-size: 13px;
+}
+
+.cvp-shortcode-tag {
+	display: inline-block;
+	margin-bottom: 6px;
+}
+
+.cvp-shortcode-attrs {
+	margin: 8px 0 0;
+	padding-left: 18px;
+	font-size: 12px;
+	color: #646970;
+}
+
+.cvp-copy-shortcode {
+	margin-left: 6px;
+	vertical-align: middle;
+}
+
+.cvp-help-section + .cvp-help-section {
+	margin-top: 0;
+}
+
+.cvp-quick-links {
+	list-style: disc;
+	padding-left: 20px;
+}
+
+.cvp-dashboard-notice {
+	margin: 12px 0 20px;
+}
+
+.cvp-admin-panel + .cvp-admin-panel {
+	margin-top: 20px;
+}

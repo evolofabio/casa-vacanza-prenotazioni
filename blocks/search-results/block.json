@@ -1,0 +1,15 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "cvp/search-results",
+	"title": "Risultati Ricerca Appartamenti",
+	"category": "widgets",
+	"icon": "list-view",
+	"description": "Mostra gli appartamenti disponibili in base ai parametri URL.",
+	"keywords": ["casa vacanza", "risultati"],
+	"textdomain": "casa-vacanza-prenotazioni",
+	"supports": {
+		"html": false,
+		"align": ["wide", "full"]
+	}
+}
