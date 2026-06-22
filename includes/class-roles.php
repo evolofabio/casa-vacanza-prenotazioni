@@ -17,35 +17,48 @@ class Roles {
 	 * Inizializza hook.
 	 */
 	public static function init() {
-		add_action( 'init', array( __CLASS__, 'maybe_add_caps_to_admin' ) );
-		add_filter( 'user_has_cap', array( __CLASS__, 'grant_caps_to_administrators' ), 10, 4 );
+		add_action( 'init', array( __CLASS__, 'maybe_add_caps_to_admin' ), 20 );
+		add_action( 'admin_init', array( __CLASS__, 'maybe_repair_caps' ) );
+		add_filter( 'map_meta_cap', array( __CLASS__, 'map_meta_cap' ), 10, 4 );
 	}
 
 	/**
-	 * Capability WordPress generate per il CPT Appartamenti.
+	 * Ripara capability dopo aggiornamenti plugin.
+	 */
+	public static function maybe_repair_caps() {
+		$stored = get_option( 'cvp_caps_version', '' );
+		if ( $stored === CVP_VERSION ) {
+			return;
+		}
+
+		self::create_role();
+		update_option( 'cvp_caps_version', CVP_VERSION );
+	}
+
+	/**
+	 * Capability per il ruolo Gestore Prenotazioni.
 	 *
 	 * @return array
 	 */
-	public static function get_apartment_capabilities() {
+	public static function get_gestore_capabilities() {
 		return array(
-			'edit_cv_appartamento',
-			'read_cv_appartamento',
-			'delete_cv_appartamento',
-			'edit_cv_appartamentos',
-			'edit_others_cv_appartamentos',
-			'publish_cv_appartamentos',
-			'read_private_cv_appartamentos',
-			'delete_cv_appartamentos',
-			'delete_private_cv_appartamentos',
-			'delete_published_cv_appartamentos',
-			'delete_others_cv_appartamentos',
-			'edit_private_cv_appartamentos',
-			'edit_published_cv_appartamentos',
+			'read'                   => true,
+			'upload_files'           => true,
+			'edit_posts'             => true,
+			'edit_others_posts'      => true,
+			'publish_posts'          => true,
+			'delete_posts'           => true,
+			'delete_others_posts'    => true,
+			'edit_published_posts'   => true,
+			'delete_published_posts' => true,
+			'cvp_view_dashboard'     => true,
+			'cvp_manage_bookings'    => true,
+			'cvp_manage_apartments'  => true,
 		);
 	}
 
 	/**
-	 * Capability plugin interne.
+	 * Capability plugin interne (admin).
 	 *
 	 * @return array
 	 */
@@ -58,74 +71,86 @@ class Roles {
 	}
 
 	/**
-	 * Assegna tutte le capability necessarie a un ruolo.
+	 * Assegna capability plugin a un ruolo.
 	 *
 	 * @param \WP_Role $role Ruolo WordPress.
 	 */
-	public static function assign_all_caps( $role ) {
+	public static function assign_plugin_caps( $role ) {
 		if ( ! $role ) {
 			return;
 		}
 
-		foreach ( array_merge( self::get_plugin_capabilities(), self::get_apartment_capabilities() ) as $cap ) {
+		foreach ( self::get_plugin_capabilities() as $cap ) {
 			$role->add_cap( $cap );
 		}
 	}
 
 	/**
-	 * Garantisce le capability plugin agli amministratori (anche senza riattivazione).
+	 * Limita il gestore ai soli CPT del plugin.
 	 *
-	 * @param array    $allcaps Tutte le capability utente.
-	 * @param array    $caps    Capability richieste.
-	 * @param array    $args    Argomenti extra.
-	 * @param \WP_User $user    Utente.
+	 * @param array  $caps    Capability richieste.
+	 * @param string $cap     Capability.
+	 * @param int    $user_id ID utente.
+	 * @param array  $args    Argomenti.
 	 * @return array
 	 */
-	public static function grant_caps_to_administrators( $allcaps, $caps, $args, $user ) {
-		if ( empty( $allcaps['manage_options'] ) ) {
-			return $allcaps;
+	public static function map_meta_cap( $caps, $cap, $user_id, $args ) {
+		if ( user_can( $user_id, 'manage_options' ) ) {
+			return $caps;
 		}
 
-		foreach ( array_merge( self::get_plugin_capabilities(), self::get_apartment_capabilities() ) as $cap ) {
-			$allcaps[ $cap ] = true;
+		if ( ! user_can( $user_id, 'cvp_view_dashboard' ) ) {
+			return $caps;
 		}
 
-		return $allcaps;
+		$plugin_types = array( Post_Types::APPARTAMENTO, Post_Types::PRENOTAZIONE );
+		$post_id      = isset( $args[0] ) ? (int) $args[0] : 0;
+		$post         = $post_id ? get_post( $post_id ) : null;
+
+		if ( $post && ! in_array( $post->post_type, $plugin_types, true ) ) {
+			return array( 'do_not_allow' );
+		}
+
+		if ( in_array( $cap, array( 'edit_post', 'delete_post', 'read_post' ), true ) && $post ) {
+			if ( Post_Types::APPARTAMENTO === $post->post_type && user_can( $user_id, 'cvp_manage_apartments' ) ) {
+				return array( 'edit_posts' );
+			}
+			if ( Post_Types::PRENOTAZIONE === $post->post_type && user_can( $user_id, 'cvp_manage_bookings' ) ) {
+				return array( 'edit_posts' );
+			}
+		}
+
+		return $caps;
 	}
 
 	/**
 	 * Crea ruolo alla attivazione.
 	 */
 	public static function create_role() {
-		remove_role( self::ROLE );
+		$gestore = get_role( self::ROLE );
 
-		$gestore = add_role(
-			self::ROLE,
-			__( 'Gestore Prenotazioni', 'casa-vacanza-prenotazioni' ),
-			self::get_role_capabilities()
-		);
+		if ( ! $gestore ) {
+			$gestore = add_role(
+				self::ROLE,
+				__( 'Gestore Prenotazioni', 'casa-vacanza-prenotazioni' ),
+				self::get_gestore_capabilities()
+			);
+		} else {
+			foreach ( self::get_gestore_capabilities() as $cap => $grant ) {
+				if ( $grant ) {
+					$gestore->add_cap( $cap );
+				}
+			}
+		}
 
-		self::assign_all_caps( $gestore );
 		self::maybe_add_caps_to_admin();
 	}
 
 	/**
-	 * Capability base del ruolo gestore.
-	 *
-	 * @return array
-	 */
-	public static function get_role_capabilities() {
-		return array(
-			'read'         => true,
-			'upload_files' => true,
-		);
-	}
-
-	/**
-	 * Aggiunge capability agli admin.
+	 * Aggiunge capability plugin agli admin.
 	 */
 	public static function maybe_add_caps_to_admin() {
-		self::assign_all_caps( get_role( 'administrator' ) );
+		self::assign_plugin_caps( get_role( 'administrator' ) );
 	}
 
 	/**
@@ -143,7 +168,7 @@ class Roles {
 	 * @return bool
 	 */
 	public static function user_can_manage_apartments() {
-		return current_user_can( 'edit_cv_appartamentos' ) || current_user_can( 'cvp_manage_apartments' ) || current_user_can( 'manage_options' );
+		return current_user_can( 'edit_posts' ) || current_user_can( 'cvp_manage_apartments' ) || current_user_can( 'manage_options' );
 	}
 
 	/**
@@ -153,5 +178,14 @@ class Roles {
 	 */
 	public static function user_can_view_dashboard() {
 		return current_user_can( 'cvp_view_dashboard' ) || current_user_can( 'manage_options' );
+	}
+
+	/**
+	 * Capability richiesta per il menu Appartamenti.
+	 *
+	 * @return string
+	 */
+	public static function get_apartments_menu_cap() {
+		return 'edit_posts';
 	}
 }

@@ -68,7 +68,7 @@ class Admin_Dashboard {
 			'cvp-dashboard',
 			__( 'Appartamenti', 'casa-vacanza-prenotazioni' ),
 			__( 'Appartamenti', 'casa-vacanza-prenotazioni' ),
-			'edit_cv_appartamentos',
+			Roles::get_apartments_menu_cap(),
 			'edit.php?post_type=' . Post_Types::APPARTAMENTO
 		);
 

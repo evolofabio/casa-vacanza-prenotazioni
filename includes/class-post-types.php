@@ -60,7 +60,7 @@ class Post_Types {
 				'menu_icon'           => 'dashicons-building',
 				'show_in_menu'        => false,
 				'show_in_rest'        => true,
-				'capability_type'     => array( 'cv_appartamento', 'cv_appartamenti' ),
+				'capability_type'     => 'post',
 				'map_meta_cap'        => true,
 			)
 		);
