@@ -45,4 +45,12 @@
 		$(this).closest('li').remove();
 		updateGalleryInput($container);
 	});
+
+	if ($.fn.sortable) {
+		$('.cvp-gallery-list').sortable({
+			update: function () {
+				updateGalleryInput($(this).closest('.cvp-gallery-admin'));
+			}
+		});
+	}
 })(jQuery);

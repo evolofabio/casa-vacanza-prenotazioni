@@ -56,7 +56,7 @@ class Post_Types {
 				'public'              => true,
 				'has_archive'         => true,
 				'rewrite'             => array( 'slug' => 'appartamenti' ),
-				'supports'            => array( 'title', 'editor', 'thumbnail' ),
+				'supports'            => array( 'title', 'editor', 'excerpt', 'thumbnail' ),
 				'menu_icon'           => 'dashicons-building',
 				'show_in_menu'        => false,
 				'show_in_rest'        => true,
@@ -64,6 +64,8 @@ class Post_Types {
 				'map_meta_cap'        => true,
 			)
 		);
+
+		add_post_type_support( self::APPARTAMENTO, 'elementor' );
 
 		register_post_type(
 			self::PRENOTAZIONE,

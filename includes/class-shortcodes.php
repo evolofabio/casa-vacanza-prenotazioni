@@ -112,6 +112,12 @@ class Shortcodes {
 		if ( ! $apartment_id ) {
 			$apartment_id = isset( $_GET['cvp_apartment'] ) ? absint( $_GET['cvp_apartment'] ) : 0;
 		}
+		if ( ! $apartment_id ) {
+			global $post;
+			if ( $post && Post_Types::APPARTAMENTO === $post->post_type ) {
+				$apartment_id = $post->ID;
+			}
+		}
 
 		if ( ! $apartment_id || ! get_post( $apartment_id ) ) {
 			return '<p class="cvp-notice">' . esc_html__( 'Seleziona un appartamento per prenotare.', 'casa-vacanza-prenotazioni' ) . '</p>';
@@ -160,18 +166,15 @@ class Shortcodes {
 	 * @return array
 	 */
 	public static function get_apartment_data( $apartment_id ) {
-		$gallery = get_post_meta( $apartment_id, '_cvp_gallery', true );
-		if ( ! is_array( $gallery ) ) {
-			$gallery = array();
-		}
+		$meta = Apartment_Meta::get_all( $apartment_id );
 
 		$images = array();
-		foreach ( $gallery as $attachment_id ) {
+		foreach ( $meta['gallery'] as $attachment_id ) {
 			$url = wp_get_attachment_image_url( $attachment_id, 'large' );
 			if ( $url ) {
 				$images[] = array(
-					'id'  => $attachment_id,
-					'url' => $url,
+					'id'    => $attachment_id,
+					'url'   => $url,
 					'thumb' => wp_get_attachment_image_url( $attachment_id, 'medium' ),
 				);
 			}
@@ -185,22 +188,21 @@ class Shortcodes {
 			);
 		}
 
-		$services = get_post_meta( $apartment_id, '_cvp_services', true );
-		if ( ! is_array( $services ) ) {
-			$services = array();
+		$excerpt = get_post_field( 'post_excerpt', $apartment_id );
+		if ( ! $excerpt ) {
+			$excerpt = wp_trim_words( wp_strip_all_tags( get_post_field( 'post_content', $apartment_id ) ), 30 );
 		}
 
-		return array(
-			'id'          => $apartment_id,
-			'title'       => get_the_title( $apartment_id ),
-			'description' => apply_filters( 'the_content', get_post_field( 'post_content', $apartment_id ) ),
-			'excerpt'     => wp_trim_words( wp_strip_all_tags( get_post_field( 'post_content', $apartment_id ) ), 30 ),
-			'price'       => get_post_meta( $apartment_id, '_cvp_price', true ),
-			'price_fmt'   => Settings::format_price( get_post_meta( $apartment_id, '_cvp_price', true ) ),
-			'max_guests'  => get_post_meta( $apartment_id, '_cvp_max_guests', true ),
-			'services'    => $services,
-			'images'      => $images,
-			'permalink'   => get_permalink( $apartment_id ),
+		return array_merge(
+			$meta,
+			array(
+				'id'          => $apartment_id,
+				'title'       => get_the_title( $apartment_id ),
+				'description' => apply_filters( 'the_content', get_post_field( 'post_content', $apartment_id ) ),
+				'excerpt'     => $excerpt,
+				'images'      => $images,
+				'permalink'   => get_permalink( $apartment_id ),
+			)
 		);
 	}
 }

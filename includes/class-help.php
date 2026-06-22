@@ -76,7 +76,7 @@ class Help {
 			),
 			array(
 				'title'   => __( 'Gutenberg ed Elementor', 'casa-vacanza-prenotazioni' ),
-				'content' => __( 'Oltre agli shortcode, trovi blocchi Gutenberg e widget Elementor nella categoria "Casa Vacanza": Barra Ricerca, Card Appartamento, Form Prenotazione e Risultati Ricerca.', 'casa-vacanza-prenotazioni' ),
+				'content' => __( 'Gli appartamenti sono compatibili con Elementor: modifica con Elementor e inserisci i dati da Impostazioni pagina → Dati Appartamento (prezzo, galleria, servizi, ecc.). Widget disponibili nella categoria "Casa Vacanza": Barra Ricerca, Risultati Ricerca, Galleria, Dettagli, Servizi, Card Appartamento e Form Prenotazione. Dynamic tag per prezzo, ospiti, camere, ubicazione e altro.', 'casa-vacanza-prenotazioni' ),
 			),
 			array(
 				'title'   => __( 'Ruolo Gestore Prenotazioni', 'casa-vacanza-prenotazioni' ),

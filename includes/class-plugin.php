@@ -54,6 +54,7 @@ class Plugin {
 	 */
 	private function init_components() {
 		Post_Types::init();
+		Apartment_Meta::init();
 		Meta_Boxes::init();
 		Roles::init();
 		Settings::init();

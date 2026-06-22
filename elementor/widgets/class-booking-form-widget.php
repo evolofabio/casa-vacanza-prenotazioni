@@ -43,7 +43,7 @@ class Booking_Form_Widget extends Widget_Base {
 			)
 		);
 
-		$options = array( '0' => __( '— Da URL —', 'casa-vacanza-prenotazioni' ) );
+		$options = array( '0' => __( '— Appartamento corrente —', 'casa-vacanza-prenotazioni' ) );
 		foreach ( $apartments as $apt ) {
 			$options[ $apt->ID ] = $apt->post_title;
 		}

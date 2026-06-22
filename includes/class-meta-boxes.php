@@ -75,6 +75,7 @@ class Meta_Boxes {
 		}
 
 		if ( Post_Types::APPARTAMENTO === $post_type ) {
+			wp_enqueue_script( 'jquery-ui-sortable' );
 			wp_enqueue_media();
 			wp_enqueue_script(
 				'cvp-admin-gallery',
@@ -100,34 +101,66 @@ class Meta_Boxes {
 	public static function render_apartment_meta_box( $post ) {
 		wp_nonce_field( 'cvp_save_apartment', 'cvp_apartment_nonce' );
 
-		$price      = get_post_meta( $post->ID, '_cvp_price', true );
-		$max_guests = get_post_meta( $post->ID, '_cvp_max_guests', true );
-		$services   = get_post_meta( $post->ID, '_cvp_services', true );
-		if ( ! is_array( $services ) ) {
-			$services = array();
-		}
+		$meta = Apartment_Meta::get_all( $post->ID );
 		?>
+		<p class="description" style="margin-bottom:1em;">
+			<?php esc_html_e( 'Compila tutti i campi qui sotto. Puoi anche modificarli da Elementor aprendo il pannello Impostazioni pagina → Dati Appartamento.', 'casa-vacanza-prenotazioni' ); ?>
+		</p>
 		<table class="form-table cvp-meta-table">
 			<tr>
-				<th><label for="cvp_price"><?php esc_html_e( 'Prezzo per notte', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<th><label for="cvp_price"><?php esc_html_e( 'Prezzo per notte', 'casa-vacanza-prenotazioni' ); ?> <span class="required">*</span></label></th>
 				<td>
-					<input type="number" step="0.01" min="0" id="cvp_price" name="cvp_price" value="<?php echo esc_attr( $price ); ?>" class="regular-text" />
+					<input type="number" step="0.01" min="0" id="cvp_price" name="cvp_price" value="<?php echo esc_attr( $meta['price'] ); ?>" class="regular-text" required />
 				</td>
 			</tr>
 			<tr>
-				<th><label for="cvp_max_guests"><?php esc_html_e( 'Capienza massima', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<th><label for="cvp_max_guests"><?php esc_html_e( 'Capienza massima', 'casa-vacanza-prenotazioni' ); ?> <span class="required">*</span></label></th>
 				<td>
-					<input type="number" min="1" id="cvp_max_guests" name="cvp_max_guests" value="<?php echo esc_attr( $max_guests ); ?>" class="small-text" />
+					<input type="number" min="1" id="cvp_max_guests" name="cvp_max_guests" value="<?php echo esc_attr( $meta['max_guests'] ); ?>" class="small-text" required />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="cvp_bedrooms"><?php esc_html_e( 'Camere da letto', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<td>
+					<input type="number" min="0" id="cvp_bedrooms" name="cvp_bedrooms" value="<?php echo esc_attr( $meta['bedrooms'] ); ?>" class="small-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="cvp_bathrooms"><?php esc_html_e( 'Bagni', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<td>
+					<input type="number" min="0" id="cvp_bathrooms" name="cvp_bathrooms" value="<?php echo esc_attr( $meta['bathrooms'] ); ?>" class="small-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="cvp_location"><?php esc_html_e( 'Ubicazione', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<td>
+					<input type="text" id="cvp_location" name="cvp_location" value="<?php echo esc_attr( $meta['location'] ); ?>" class="large-text" placeholder="<?php esc_attr_e( 'Es: Lago di Garda, Desenzano del Garda', 'casa-vacanza-prenotazioni' ); ?>" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="cvp_min_nights"><?php esc_html_e( 'Notti minime', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<td>
+					<input type="number" min="0" id="cvp_min_nights" name="cvp_min_nights" value="<?php echo esc_attr( $meta['min_nights'] ); ?>" class="small-text" />
+					<p class="description"><?php esc_html_e( 'Lascia 0 per usare il valore globale nelle Impostazioni.', 'casa-vacanza-prenotazioni' ); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="cvp_cleaning_fee"><?php esc_html_e( 'Spese pulizia', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<td>
+					<input type="number" step="0.01" min="0" id="cvp_cleaning_fee" name="cvp_cleaning_fee" value="<?php echo esc_attr( $meta['cleaning_fee'] ); ?>" class="regular-text" />
 				</td>
 			</tr>
 			<tr>
 				<th><label for="cvp_services"><?php esc_html_e( 'Servizi (uno per riga)', 'casa-vacanza-prenotazioni' ); ?></label></th>
 				<td>
-					<textarea id="cvp_services" name="cvp_services" rows="6" class="large-text"><?php echo esc_textarea( implode( "\n", $services ) ); ?></textarea>
+					<textarea id="cvp_services" name="cvp_services" rows="6" class="large-text"><?php echo esc_textarea( implode( "\n", $meta['services'] ) ); ?></textarea>
 					<p class="description"><?php esc_html_e( 'Es: Wi-Fi, Parcheggio, Aria condizionata', 'casa-vacanza-prenotazioni' ); ?></p>
 				</td>
 			</tr>
 		</table>
+		<p class="description">
+			<?php esc_html_e( 'Usa il riassunto (excerpt) per una breve descrizione nelle card di ricerca. La descrizione completa va nell’editor principale.', 'casa-vacanza-prenotazioni' ); ?>
+		</p>
 		<?php
 	}
 
@@ -137,7 +170,7 @@ class Meta_Boxes {
 	 * @param \WP_Post $post Post corrente.
 	 */
 	public static function render_gallery_meta_box( $post ) {
-		$gallery = get_post_meta( $post->ID, '_cvp_gallery', true );
+		$gallery = get_post_meta( $post->ID, Apartment_Meta::GALLERY, true );
 		if ( ! is_array( $gallery ) ) {
 			$gallery = array();
 		}
@@ -300,16 +333,7 @@ class Meta_Boxes {
 			return;
 		}
 
-		update_post_meta( $post_id, '_cvp_price', isset( $_POST['cvp_price'] ) ? floatval( $_POST['cvp_price'] ) : 0 );
-		update_post_meta( $post_id, '_cvp_max_guests', isset( $_POST['cvp_max_guests'] ) ? absint( $_POST['cvp_max_guests'] ) : 1 );
-
-		$services_raw = isset( $_POST['cvp_services'] ) ? sanitize_textarea_field( wp_unslash( $_POST['cvp_services'] ) ) : '';
-		$services     = array_filter( array_map( 'trim', explode( "\n", $services_raw ) ) );
-		update_post_meta( $post_id, '_cvp_services', $services );
-
-		$gallery_raw = isset( $_POST['cvp_gallery'] ) ? sanitize_text_field( wp_unslash( $_POST['cvp_gallery'] ) ) : '';
-		$gallery     = array_filter( array_map( 'absint', explode( ',', $gallery_raw ) ) );
-		update_post_meta( $post_id, '_cvp_gallery', $gallery );
+		Apartment_Meta::save_from_request( $post_id );
 	}
 
 	/**
