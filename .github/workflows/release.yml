@@ -9,7 +9,23 @@ permissions:
   contents: write
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          coverage: none
+
+      - name: Pre-release checks
+        run: bash scripts/pre-release-check.sh
+
   release:
+    needs: validate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,11 +37,13 @@ jobs:
           rsync -a \
             --exclude='.git' \
             --exclude='.github' \
+            --exclude='scripts' \
             --exclude='*.zip' \
             --exclude='.DS_Store' \
             ./ build/casa-vacanza-prenotazioni/
           cd build
           zip -r casa-vacanza-prenotazioni.zip casa-vacanza-prenotazioni
+          unzip -l casa-vacanza-prenotazioni.zip | grep 'casa-vacanza-prenotazioni/casa-vacanza-prenotazioni.php'
 
       - name: Upload release asset
         uses: softprops/action-gh-release@v2

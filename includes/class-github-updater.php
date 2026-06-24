@@ -519,7 +519,11 @@ class GitHub_Updater {
 				continue;
 			}
 
-			wp_delete_file( $full );
+			if ( function_exists( 'wp_delete_file' ) ) {
+				wp_delete_file( $full );
+			} elseif ( is_writable( $full ) ) {
+				unlink( $full );
+			}
 		}
 
 		@rmdir( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged

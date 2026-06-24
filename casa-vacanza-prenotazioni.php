@@ -3,7 +3,7 @@
  * Plugin Name:       Casa Vacanza Prenotazioni
  * Plugin URI:        https://github.com/evolofabio/casa-vacanza-prenotazioni
  * Description:       Sistema completo di prenotazioni per case vacanza con appartamenti, calendario disponibilità, widget e area operatore.
- * Version:           1.1.2
+ * Version:           1.1.3
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Evolo Digital Studio
@@ -22,7 +22,7 @@ if ( defined( 'CVP_LOADED' ) ) {
 define( 'CVP_LOADED', true );
 
 if ( ! defined( 'CVP_VERSION' ) ) {
-	define( 'CVP_VERSION', '1.1.2' );
+	define( 'CVP_VERSION', '1.1.3' );
 	define( 'CVP_PLUGIN_FILE', __FILE__ );
 	define( 'CVP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 	define( 'CVP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
