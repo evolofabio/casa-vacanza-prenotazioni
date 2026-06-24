@@ -7,14 +7,13 @@
 
 namespace CVP\Elementor\Widgets;
 
-use Elementor\Widget_Base;
 use Elementor\Controls_Manager;
 use CVP\Post_Types;
 use CVP\Shortcodes;
 
 defined( 'ABSPATH' ) || exit;
 
-class Apartment_Card_Widget extends Widget_Base {
+class Apartment_Card_Widget extends Cvp_Widget_Base {
 
 	public function get_name() {
 		return 'cvp_apartment_card';

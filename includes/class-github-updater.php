@@ -11,10 +11,12 @@ defined( 'ABSPATH' ) || exit;
 
 class GitHub_Updater {
 
-	const GITHUB_OWNER = 'evolofabio';
-	const GITHUB_REPO  = 'casa-vacanza-prenotazioni';
-	const CACHE_KEY    = 'cvp_github_release';
-	const CACHE_TTL    = 43200;
+	const GITHUB_OWNER   = 'evolofabio';
+	const GITHUB_REPO    = 'casa-vacanza-prenotazioni';
+	const PLUGIN_MAIN    = 'casa-vacanza-prenotazioni.php';
+	const STANDARD_FOLDER = 'casa-vacanza-prenotazioni';
+	const CACHE_KEY      = 'cvp_github_release';
+	const CACHE_TTL      = 43200;
 
 	public static function init() {
 		if ( ! is_admin() ) {
@@ -24,7 +26,8 @@ class GitHub_Updater {
 		add_filter( 'pre_set_site_transient_update_plugins', array( __CLASS__, 'inject_update' ) );
 		add_filter( 'plugins_api', array( __CLASS__, 'plugin_info' ), 10, 3 );
 		add_filter( 'upgrader_pre_install', array( __CLASS__, 'block_git_install_upgrade' ), 10, 2 );
-		add_filter( 'upgrader_post_install', array( __CLASS__, 'fix_install_directory' ), 10, 3 );
+		add_filter( 'upgrader_source_selection', array( __CLASS__, 'fix_source_selection' ), 10, 4 );
+		add_filter( 'upgrader_post_install', array( __CLASS__, 'verify_install' ), 10, 3 );
 		add_action( 'admin_init', array( __CLASS__, 'handle_force_check' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'git_update_admin_notice' ) );
 	}
@@ -301,7 +304,92 @@ class GitHub_Updater {
 		return $info;
 	}
 
-	public static function fix_install_directory( $response, $hook_extra, $result ) {
+	/**
+	 * Individua la cartella radice del plugin nello zip estratto.
+	 *
+	 * @param string              $source     Percorso estratto.
+	 * @param \WP_Filesystem_Base $filesystem Filesystem WP.
+	 * @return string
+	 */
+	private static function find_plugin_root( $source, $filesystem ) {
+		$source = trailingslashit( $source );
+
+		if ( $filesystem->exists( $source . self::PLUGIN_MAIN ) ) {
+			return untrailingslashit( $source );
+		}
+
+		$candidates = array(
+			self::STANDARD_FOLDER,
+			self::GITHUB_REPO,
+			self::GITHUB_REPO . '-main',
+			self::GITHUB_REPO . '-master',
+		);
+
+		foreach ( $candidates as $name ) {
+			$path = $source . $name;
+			if ( $filesystem->exists( trailingslashit( $path ) . self::PLUGIN_MAIN ) ) {
+				return $path;
+			}
+		}
+
+		$list = $filesystem->dirlist( untrailingslashit( $source ), false, false );
+		if ( ! is_array( $list ) ) {
+			return '';
+		}
+
+		foreach ( $list as $name => $item ) {
+			if ( 'd' !== ( $item['type'] ?? '' ) ) {
+				continue;
+			}
+
+			$path = $source . $name;
+			if ( $filesystem->exists( trailingslashit( $path ) . self::PLUGIN_MAIN ) ) {
+				return $path;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Punta WordPress alla sottocartella corretta dello zip prima dell'installazione.
+	 *
+	 * @param string                           $source         Sorgente proposta.
+	 * @param string                           $remote_source  Sorgente remota.
+	 * @param \Plugin_Upgrader|\WP_Upgrader    $upgrader       Upgrader.
+	 * @param array                            $hook_extra     Dati hook.
+	 * @return string|\WP_Error
+	 */
+	public static function fix_source_selection( $source, $remote_source, $upgrader, $hook_extra ) {
+		if ( empty( $hook_extra['plugin'] ) || self::get_plugin_slug() !== $hook_extra['plugin'] ) {
+			return $source;
+		}
+
+		global $wp_filesystem;
+		if ( ! $wp_filesystem ) {
+			return $source;
+		}
+
+		$plugin_root = self::find_plugin_root( $source, $wp_filesystem );
+		if ( ! $plugin_root ) {
+			return new \WP_Error(
+				'cvp_bad_zip_structure',
+				__( 'Zip aggiornamento non valido: file principale del plugin non trovato.', 'casa-vacanza-prenotazioni' )
+			);
+		}
+
+		return $plugin_root;
+	}
+
+	/**
+	 * Verifica che l'aggiornamento abbia lasciato il plugin nella cartella attesa.
+	 *
+	 * @param bool|\WP_Error $response   Risposta corrente.
+	 * @param array          $hook_extra Dati hook.
+	 * @param array          $result     Risultato installazione.
+	 * @return bool|\WP_Error
+	 */
+	public static function verify_install( $response, $hook_extra, $result ) {
 		if ( empty( $hook_extra['plugin'] ) || self::get_plugin_slug() !== $hook_extra['plugin'] ) {
 			return $response;
 		}
@@ -310,69 +398,15 @@ class GitHub_Updater {
 			return $response;
 		}
 
-		global $wp_filesystem;
-		if ( empty( $result['destination'] ) || ! $wp_filesystem ) {
+		$plugin_file = WP_PLUGIN_DIR . '/' . self::get_plugin_slug();
+		if ( file_exists( $plugin_file ) ) {
 			return $response;
 		}
 
-		$destination = WP_PLUGIN_DIR . '/' . self::get_plugin_folder();
-		$source      = $result['destination'];
-
-		if ( $source !== $destination ) {
-			// Non tentare di cancellare .git: rimuovi solo i file del plugin.
-			if ( $wp_filesystem->exists( $destination ) && ! self::is_git_install() ) {
-				$wp_filesystem->delete( $destination, true );
-			}
-
-			if ( $wp_filesystem->exists( $destination ) ) {
-				self::merge_directory( $wp_filesystem, $source, $destination );
-				$wp_filesystem->delete( $source, true );
-			} else {
-				$wp_filesystem->move( $source, $destination );
-			}
-		}
-
-		if ( is_plugin_active( self::get_plugin_slug() ) ) {
-			activate_plugin( self::get_plugin_slug() );
-		}
-
-		return $response;
-	}
-
-	/**
-	 * Copia ricorsiva senza toccare .git.
-	 *
-	 * @param \WP_Filesystem_Base $filesystem Filesystem WP.
-	 * @param string              $source     Sorgente.
-	 * @param string              $dest       Destinazione.
-	 */
-	private static function merge_directory( $filesystem, $source, $dest ) {
-		$items = $filesystem->dirlist( $source, true, false );
-		if ( ! is_array( $items ) ) {
-			return;
-		}
-
-		foreach ( $items as $name => $item ) {
-			if ( '.git' === $name ) {
-				continue;
-			}
-
-			$from = trailingslashit( $source ) . $name;
-			$to   = trailingslashit( $dest ) . $name;
-
-			if ( 'd' === ( $item['type'] ?? '' ) ) {
-				if ( ! $filesystem->exists( $to ) ) {
-					$filesystem->mkdir( $to );
-				}
-				self::merge_directory( $filesystem, $from, $to );
-				continue;
-			}
-
-			if ( $filesystem->exists( $to ) ) {
-				$filesystem->delete( $to );
-			}
-			$filesystem->copy( $from, $to );
-		}
+		return new \WP_Error(
+			'cvp_install_missing',
+			__( 'Aggiornamento non riuscito: il plugin non è stato trovato dopo l\'installazione. Reinstalla manualmente lo zip dalla release GitHub (cartella casa-vacanza-prenotazioni).', 'casa-vacanza-prenotazioni' )
+		);
 	}
 
 	public static function get_update_status( $force_refresh = false ) {

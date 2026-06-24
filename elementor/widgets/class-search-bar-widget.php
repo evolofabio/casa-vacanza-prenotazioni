@@ -7,14 +7,13 @@
 
 namespace CVP\Elementor\Widgets;
 
-use Elementor\Widget_Base;
 use Elementor\Controls_Manager;
 use CVP\Shortcodes;
 use CVP\Settings;
 
 defined( 'ABSPATH' ) || exit;
 
-class Search_Bar_Widget extends Widget_Base {
+class Search_Bar_Widget extends Cvp_Widget_Base {
 
 	public function get_name() {
 		return 'cvp_search_bar';

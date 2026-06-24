@@ -20,10 +20,20 @@ class Elementor_Integration {
 		add_action( 'admin_init', array( __CLASS__, 'ensure_cpt_support' ) );
 
 		require_once CVP_PLUGIN_DIR . 'elementor/class-elementor-apartment-document.php';
+		require_once CVP_PLUGIN_DIR . 'elementor/class-cvp-widget-base.php';
 		require_once CVP_PLUGIN_DIR . 'elementor/dynamic-tags/class-dynamic-tags.php';
 
 		Elementor\Apartment_Document::init();
 		Elementor\DynamicTags\Dynamic_Tags::init();
+
+		add_action( 'elementor/frontend/after_register_styles', array( __CLASS__, 'register_frontend_assets' ) );
+	}
+
+	/**
+	 * Registra CSS/JS plugin per Elementor frontend.
+	 */
+	public static function register_frontend_assets() {
+		Assets::register_frontend();
 	}
 
 	/**

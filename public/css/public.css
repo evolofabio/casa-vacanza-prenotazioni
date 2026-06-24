@@ -1,4 +1,25 @@
 /* Frontend styles */
+.cvp-search-bar,
+.cvp-search-results,
+.cvp-apartment-card,
+.cvp-booking-form-wrapper,
+.cvp-booking-form,
+.cvp-apartment-gallery,
+.cvp-apartment-services,
+.cvp-apartment-details {
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
+}
+
+.elementor-widget[class*="elementor-widget-cvp_"] .elementor-widget-container {
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
+	overflow: visible;
+}
+
 .cvp-search-bar {
 	margin-bottom: 2rem;
 }
@@ -29,10 +50,14 @@
 
 .cvp-search-bar__field input {
 	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
 	padding: 10px 12px;
 	border: 1px solid #cbd5e1;
 	border-radius: 8px;
-	font-size: 1rem;
+	font-size: 16px;
+	-webkit-appearance: none;
+	appearance: none;
 }
 
 .cvp-search-bar__submit {
@@ -86,9 +111,15 @@
 
 .cvp-search-results__grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
 	gap: 24px;
 	margin-top: 24px;
+}
+
+.cvp-search-results__header h2 {
+	margin: 0 0 8px;
+	line-height: 1.3;
+	word-break: break-word;
 }
 
 .cvp-apartment-card {
@@ -99,9 +130,12 @@
 	box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
-.cvp-apartment-card__gallery img {
+.cvp-apartment-card__gallery img,
+.cvp-gallery-main img {
 	width: 100%;
-	height: 220px;
+	max-width: 100%;
+	height: auto;
+	max-height: 280px;
 	object-fit: cover;
 	display: block;
 }
@@ -144,8 +178,9 @@
 
 .cvp-apartment-card__meta {
 	display: flex;
-	justify-content: space-between;
-	gap: 12px;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 8px 16px;
 	margin-bottom: 12px;
 	color: #475569;
 }
@@ -199,9 +234,14 @@
 .cvp-form-field input,
 .cvp-form-field textarea {
 	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
 	padding: 10px 12px;
 	border: 1px solid #cbd5e1;
 	border-radius: 8px;
+	font-size: 16px;
+	-webkit-appearance: none;
+	appearance: none;
 }
 
 .cvp-price-summary {
@@ -284,6 +324,8 @@
 	width: 100%;
 	max-height: 90vh;
 	overflow-y: auto;
+	overflow-x: hidden;
+	-webkit-overflow-scrolling: touch;
 	padding: 24px;
 	z-index: 1;
 }
@@ -299,19 +341,85 @@
 	line-height: 1;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 767px) {
 	.cvp-search-bar__inner {
 		flex-direction: column;
+		align-items: stretch;
+		padding: 14px;
+	}
+
+	.cvp-search-bar__field,
+	.cvp-search-bar__submit {
+		flex: 1 1 auto;
+		width: 100%;
+	}
+
+	.cvp-search-bar__submit .cvp-btn {
+		width: 100%;
 	}
 
 	.cvp-form-row--2 {
 		grid-template-columns: 1fr;
 	}
+
+	.cvp-search-results__grid {
+		grid-template-columns: 1fr;
+		gap: 16px;
+	}
+
+	.cvp-apartment-card__actions {
+		flex-direction: column;
+	}
+
+	.cvp-apartment-card__actions .cvp-btn {
+		width: 100%;
+	}
+
+	.cvp-apartment-card__body {
+		padding: 16px;
+	}
+
+	.cvp-apartment-card__title {
+		font-size: 1.2rem;
+	}
+
+	.cvp-apartment-gallery--grid .cvp-gallery-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.cvp-apartment-details {
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.cvp-booking-modal {
+		padding: 0;
+		align-items: flex-end;
+	}
+
+	.cvp-booking-modal__content {
+		border-radius: 16px 16px 0 0;
+		max-height: 92vh;
+		padding: 20px 16px 24px;
+	}
+
+	.cvp-price-summary {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 4px;
+	}
+}
+
+@media (max-width: 380px) {
+	.cvp-gallery-thumb img {
+		width: 48px;
+		height: 48px;
+	}
 }
 
 .cvp-apartment-gallery--grid .cvp-gallery-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
 	gap: 12px;
 }
 
