@@ -15,6 +15,7 @@ class Assets {
 	 * Inizializza hook.
 	 */
 	public static function init() {
+		add_action( 'init', array( __CLASS__, 'register_frontend' ), 1 );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_frontend' ) );
 	}
 
@@ -68,6 +69,8 @@ class Assets {
 	 * Enqueue asset se non già caricati.
 	 */
 	public static function enqueue_if_needed() {
+		self::register_frontend();
+
 		if ( ! wp_style_is( 'cvp-public', 'enqueued' ) ) {
 			wp_enqueue_style( 'cvp-public' );
 		}

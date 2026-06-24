@@ -30,6 +30,7 @@ class GitHub_Updater {
 		add_filter( 'upgrader_post_install', array( __CLASS__, 'verify_install' ), 10, 3 );
 		add_action( 'admin_init', array( __CLASS__, 'handle_force_check' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'git_update_admin_notice' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'duplicate_install_notice' ) );
 	}
 
 	public static function get_plugin_slug() {
@@ -42,6 +43,50 @@ class GitHub_Updater {
 
 	public static function get_repo_url() {
 		return 'https://github.com/' . self::GITHUB_OWNER . '/' . self::GITHUB_REPO;
+	}
+
+	/**
+	 * Elenco installazioni plugin trovate in wp-content/plugins.
+	 *
+	 * @return array<string>
+	 */
+	public static function find_plugin_copies() {
+		if ( ! function_exists( 'get_plugins' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		}
+
+		$copies = array();
+		foreach ( get_plugins() as $plugin_file => $data ) {
+			if ( false !== strpos( $plugin_file, self::PLUGIN_MAIN ) ) {
+				$copies[] = $plugin_file;
+			}
+		}
+
+		return $copies;
+	}
+
+	/**
+	 * Avvisa se sono presenti più copie del plugin.
+	 */
+	public static function duplicate_install_notice() {
+		if ( ! current_user_can( 'activate_plugins' ) ) {
+			return;
+		}
+
+		$copies = self::find_plugin_copies();
+		if ( count( $copies ) < 2 ) {
+			return;
+		}
+
+		echo '<div class="notice notice-error"><p><strong>';
+		esc_html_e( 'Casa Vacanza Prenotazioni: rilevate più copie del plugin.', 'casa-vacanza-prenotazioni' );
+		echo '</strong> ';
+		esc_html_e( 'Questo può mandare il sito in errore. Elimina le cartelle duplicate in wp-content/plugins e tieni solo casa-vacanza-prenotazioni attiva.', 'casa-vacanza-prenotazioni' );
+		echo '</p><ul style="list-style:disc;padding-left:20px;">';
+		foreach ( $copies as $plugin_file ) {
+			echo '<li><code>' . esc_html( $plugin_file ) . '</code></li>';
+		}
+		echo '</ul></div>';
 	}
 
 	/**
@@ -400,6 +445,7 @@ class GitHub_Updater {
 
 		$plugin_file = WP_PLUGIN_DIR . '/' . self::get_plugin_slug();
 		if ( file_exists( $plugin_file ) ) {
+			self::cleanup_stale_install_folders();
 			return $response;
 		}
 
@@ -407,6 +453,76 @@ class GitHub_Updater {
 			'cvp_install_missing',
 			__( 'Aggiornamento non riuscito: il plugin non è stato trovato dopo l\'installazione. Reinstalla manualmente lo zip dalla release GitHub (cartella casa-vacanza-prenotazioni).', 'casa-vacanza-prenotazioni' )
 		);
+	}
+
+	/**
+	 * Rimuove cartelle obsolete create da zip GitHub (es. *-main) dopo aggiornamento riuscito.
+	 */
+	private static function cleanup_stale_install_folders() {
+		if ( ! defined( 'WP_PLUGIN_DIR' ) ) {
+			return;
+		}
+
+		$active_folder = self::get_plugin_folder();
+		$patterns      = array(
+			self::GITHUB_REPO . '-main',
+			self::GITHUB_REPO . '-master',
+		);
+
+		foreach ( $patterns as $folder ) {
+			if ( $folder === $active_folder ) {
+				continue;
+			}
+
+			$path = WP_PLUGIN_DIR . '/' . $folder;
+			if ( ! is_dir( $path ) ) {
+				continue;
+			}
+
+			$main_file = $path . '/' . self::PLUGIN_MAIN;
+			if ( ! file_exists( $main_file ) ) {
+				continue;
+			}
+
+			// Non cancellare installazioni Git attive.
+			if ( is_dir( $path . '/.git' ) ) {
+				continue;
+			}
+
+			self::delete_plugin_folder( $path );
+		}
+	}
+
+	/**
+	 * Elimina ricorsivamente una cartella plugin (solo file, senza toccare altre directory).
+	 *
+	 * @param string $path Percorso assoluto.
+	 */
+	private static function delete_plugin_folder( $path ) {
+		if ( ! is_dir( $path ) ) {
+			return;
+		}
+
+		$items = scandir( $path );
+		if ( ! is_array( $items ) ) {
+			return;
+		}
+
+		foreach ( $items as $item ) {
+			if ( '.' === $item || '..' === $item ) {
+				continue;
+			}
+
+			$full = $path . '/' . $item;
+			if ( is_dir( $full ) ) {
+				self::delete_plugin_folder( $full );
+				continue;
+			}
+
+			wp_delete_file( $full );
+		}
+
+		@rmdir( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 	}
 
 	public static function get_update_status( $force_refresh = false ) {

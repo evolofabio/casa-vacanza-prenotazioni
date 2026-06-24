@@ -26,7 +26,7 @@ class Elementor_Integration {
 		Elementor\Apartment_Document::init();
 		Elementor\DynamicTags\Dynamic_Tags::init();
 
-		add_action( 'elementor/frontend/after_register_styles', array( __CLASS__, 'register_frontend_assets' ) );
+		add_action( 'elementor/frontend/before_register_styles', array( __CLASS__, 'register_frontend_assets' ) );
 	}
 
 	/**
