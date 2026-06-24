@@ -68,10 +68,7 @@ class Shortcodes {
 
 		$apartment_id = absint( $atts['id'] );
 		if ( ! $apartment_id ) {
-			global $post;
-			if ( $post && Post_Types::APPARTAMENTO === $post->post_type ) {
-				$apartment_id = $post->ID;
-			}
+			$apartment_id = Apartment_Meta::resolve_apartment_id( 0 );
 		}
 
 		if ( ! $apartment_id ) {
@@ -113,10 +110,7 @@ class Shortcodes {
 			$apartment_id = isset( $_GET['cvp_apartment'] ) ? absint( $_GET['cvp_apartment'] ) : 0;
 		}
 		if ( ! $apartment_id ) {
-			global $post;
-			if ( $post && Post_Types::APPARTAMENTO === $post->post_type ) {
-				$apartment_id = $post->ID;
-			}
+			$apartment_id = Apartment_Meta::resolve_apartment_id( 0 );
 		}
 
 		if ( ! $apartment_id || ! get_post( $apartment_id ) ) {
@@ -201,7 +195,7 @@ class Shortcodes {
 				'description' => apply_filters( 'the_content', get_post_field( 'post_content', $apartment_id ) ),
 				'excerpt'     => $excerpt,
 				'images'      => $images,
-				'permalink'   => get_permalink( $apartment_id ),
+				'permalink'   => Apartment_Meta::get_public_permalink( $apartment_id ),
 			)
 		);
 	}

@@ -9,6 +9,7 @@ namespace CVP\Elementor\Widgets;
 
 use Elementor\Widget_Base;
 use Elementor\Controls_Manager;
+use CVP\Apartment_Meta;
 use CVP\Post_Types;
 use CVP\Shortcodes;
 
@@ -123,13 +124,7 @@ class Apartment_Details_Widget extends Widget_Base {
 
 	protected function render() {
 		$settings     = $this->get_settings_for_display();
-		$apartment_id = absint( $settings['apartment_id'] );
-		if ( ! $apartment_id ) {
-			global $post;
-			if ( $post && Post_Types::APPARTAMENTO === $post->post_type ) {
-				$apartment_id = $post->ID;
-			}
-		}
+		$apartment_id = Apartment_Meta::resolve_apartment_id( absint( $settings['apartment_id'] ) );
 		if ( ! $apartment_id ) {
 			return;
 		}

@@ -21,8 +21,8 @@ class Dynamic_Tags {
 	 * Inizializza hook.
 	 */
 	public static function init() {
-		add_action( 'elementor/dynamic_tags/register', array( __CLASS__, 'register_tags' ) );
-		add_action( 'elementor/dynamic_tags/register', array( __CLASS__, 'register_group' ) );
+		add_action( 'elementor/dynamic_tags/register', array( __CLASS__, 'register_group' ), 5 );
+		add_action( 'elementor/dynamic_tags/register', array( __CLASS__, 'register_tags' ), 10 );
 	}
 
 	/**
@@ -66,12 +66,7 @@ abstract class Base_Apartment_Tag extends Tag {
 	 * @return int
 	 */
 	protected function get_apartment_id() {
-		$post_id = (int) get_the_ID();
-		if ( $post_id && Post_Types::APPARTAMENTO === get_post_type( $post_id ) ) {
-			return $post_id;
-		}
-
-		return 0;
+		return Apartment_Meta::resolve_apartment_id( 0 );
 	}
 
 	public function get_group() {

@@ -38,13 +38,28 @@ class Apartment_Document {
 			return;
 		}
 
-		$meta = Apartment_Meta::get_all( $post->ID );
+		$meta           = Apartment_Meta::get_all( $post->ID );
+		$linkable_pages = Apartment_Meta::get_linkable_pages( $post->ID );
+		$page_options   = array( '0' => __( '— Nessuna —', 'casa-vacanza-prenotazioni' ) );
+		foreach ( $linkable_pages as $page ) {
+			$page_options[ (string) $page->ID ] = $page->post_title;
+		}
 
 		$document->start_controls_section(
 			'cvp_apartment_data',
 			array(
 				'label' => __( 'Dati Appartamento', 'casa-vacanza-prenotazioni' ),
 				'tab'   => Controls_Manager::TAB_SETTINGS,
+			)
+		);
+
+		$document->add_control(
+			'cvp_linked_page_id',
+			array(
+				'label'   => __( 'Pagina collegata', 'casa-vacanza-prenotazioni' ),
+				'type'    => Controls_Manager::SELECT,
+				'options' => $page_options,
+				'default' => (string) $meta['linked_page'],
 			)
 		);
 

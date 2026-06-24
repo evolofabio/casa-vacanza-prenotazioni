@@ -20,12 +20,14 @@ class Apartment_Meta {
 	const CLEANING_FEE = '_cvp_cleaning_fee';
 	const SERVICES     = '_cvp_services';
 	const GALLERY      = '_cvp_gallery';
+	const LINKED_PAGE  = '_cvp_linked_page_id';
 
 	/**
 	 * Inizializza hook.
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_meta' ), 15 );
+		add_action( 'template_redirect', array( __CLASS__, 'maybe_redirect_to_linked_page' ) );
 	}
 
 	/**
@@ -165,6 +167,18 @@ class Apartment_Meta {
 				'sanitize_callback' => array( __CLASS__, 'sanitize_gallery' ),
 			)
 		);
+
+		register_post_meta(
+			Post_Types::APPARTAMENTO,
+			self::LINKED_PAGE,
+			array(
+				'type'              => 'integer',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'auth_callback'     => $auth,
+				'sanitize_callback' => 'absint',
+			)
+		);
 	}
 
 	/**
@@ -248,7 +262,270 @@ class Apartment_Meta {
 			'cleaning_fmt' => $cleaning_fee ? Settings::format_price( $cleaning_fee ) : '',
 			'services'     => $services,
 			'gallery'      => array_map( 'absint', $gallery ),
+			'linked_page'  => (int) get_post_meta( $post_id, self::LINKED_PAGE, true ),
 		);
+	}
+
+	/**
+	 * Risolve l'ID appartamento dal contesto corrente o da un ID esplicito.
+	 *
+	 * @param int $explicit_id ID esplicito (shortcode/widget).
+	 * @return int
+	 */
+	public static function resolve_apartment_id( $explicit_id = 0 ) {
+		$explicit_id = absint( $explicit_id );
+		if ( $explicit_id ) {
+			return $explicit_id;
+		}
+
+		global $post;
+		if ( ! $post ) {
+			return 0;
+		}
+
+		if ( Post_Types::APPARTAMENTO === $post->post_type ) {
+			return (int) $post->ID;
+		}
+
+		return self::get_apartment_id_by_page( $post->ID );
+	}
+
+	/**
+	 * Trova l'appartamento collegato a una pagina.
+	 *
+	 * @param int $page_id ID pagina.
+	 * @return int
+	 */
+	public static function get_apartment_id_by_page( $page_id ) {
+		$page_id = absint( $page_id );
+		if ( ! $page_id ) {
+			return 0;
+		}
+
+		$apartments = get_posts(
+			array(
+				'post_type'              => Post_Types::APPARTAMENTO,
+				'post_status'            => array( 'publish', 'draft', 'pending', 'private' ),
+				'posts_per_page'         => 1,
+				'fields'                 => 'ids',
+				'no_found_rows'          => true,
+				'update_post_meta_cache' => false,
+				'meta_query'             => array(
+					array(
+						'key'   => self::LINKED_PAGE,
+						'value' => $page_id,
+					),
+				),
+			)
+		);
+
+		return ! empty( $apartments ) ? (int) $apartments[0] : 0;
+	}
+
+	/**
+	 * Mappa pagine già collegate ad appartamenti.
+	 *
+	 * @return array<int, int> page_id => apartment_id
+	 */
+	public static function get_linked_pages_map() {
+		$apartments = get_posts(
+			array(
+				'post_type'      => Post_Types::APPARTAMENTO,
+				'post_status'    => array( 'publish', 'draft', 'pending', 'private' ),
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+			)
+		);
+
+		$map = array();
+		foreach ( $apartments as $apartment_id ) {
+			$page_id = (int) get_post_meta( $apartment_id, self::LINKED_PAGE, true );
+			if ( $page_id ) {
+				$map[ $page_id ] = (int) $apartment_id;
+			}
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Pagine disponibili per il collegamento.
+	 *
+	 * @param int $current_apartment_id Appartamento in modifica (0 in creazione).
+	 * @return array<\WP_Post>
+	 */
+	public static function get_linkable_pages( $current_apartment_id = 0 ) {
+		$linked_map = self::get_linked_pages_map();
+		$pages      = get_pages(
+			array(
+				'sort_column' => 'post_title',
+				'sort_order'  => 'ASC',
+			)
+		);
+
+		$available = array();
+		foreach ( $pages as $page ) {
+			if ( ! isset( $linked_map[ $page->ID ] ) || (int) $linked_map[ $page->ID ] === (int) $current_apartment_id ) {
+				$available[] = $page;
+			}
+		}
+
+		return $available;
+	}
+
+	/**
+	 * Pagine non ancora collegate a nessun appartamento.
+	 *
+	 * @return array<\WP_Post>
+	 */
+	public static function get_unlinked_pages() {
+		$linked_map = self::get_linked_pages_map();
+		$pages      = get_pages(
+			array(
+				'sort_column' => 'post_title',
+				'sort_order'  => 'ASC',
+			)
+		);
+
+		$unlinked = array();
+		foreach ( $pages as $page ) {
+			if ( ! isset( $linked_map[ $page->ID ] ) ) {
+				$unlinked[] = $page;
+			}
+		}
+
+		return $unlinked;
+	}
+
+	/**
+	 * URL pubblico dell'appartamento (pagina collegata o permalink CPT).
+	 *
+	 * @param int $apartment_id ID appartamento.
+	 * @return string
+	 */
+	public static function get_public_permalink( $apartment_id ) {
+		$page_id = (int) get_post_meta( $apartment_id, self::LINKED_PAGE, true );
+		if ( $page_id ) {
+			$url = get_permalink( $page_id );
+			if ( $url ) {
+				return $url;
+			}
+		}
+
+		return get_permalink( $apartment_id ) ?: '';
+	}
+
+	/**
+	 * Collega una pagina a un appartamento (unicità garantita).
+	 *
+	 * @param int $apartment_id ID appartamento.
+	 * @param int $page_id        ID pagina (0 per rimuovere).
+	 * @return true|\WP_Error
+	 */
+	public static function assign_linked_page( $apartment_id, $page_id ) {
+		$apartment_id = absint( $apartment_id );
+		$page_id      = absint( $page_id );
+
+		if ( ! $apartment_id || Post_Types::APPARTAMENTO !== get_post_type( $apartment_id ) ) {
+			return new \WP_Error( 'invalid_apartment', __( 'Appartamento non valido.', 'casa-vacanza-prenotazioni' ) );
+		}
+
+		if ( ! $page_id ) {
+			delete_post_meta( $apartment_id, self::LINKED_PAGE );
+			return true;
+		}
+
+		$page = get_post( $page_id );
+		if ( ! $page || 'page' !== $page->post_type ) {
+			return new \WP_Error( 'invalid_page', __( 'Pagina non valida.', 'casa-vacanza-prenotazioni' ) );
+		}
+
+		$existing = self::get_apartment_id_by_page( $page_id );
+		if ( $existing && $existing !== $apartment_id ) {
+			return new \WP_Error(
+				'page_in_use',
+				sprintf(
+					/* translators: %s: apartment title */
+					__( 'Questa pagina è già collegata all\'appartamento "%s".', 'casa-vacanza-prenotazioni' ),
+					get_the_title( $existing )
+				)
+			);
+		}
+
+		update_post_meta( $apartment_id, self::LINKED_PAGE, $page_id );
+		return true;
+	}
+
+	/**
+	 * Crea un appartamento da una pagina WordPress esistente.
+	 *
+	 * @param int $page_id ID pagina.
+	 * @return int|\WP_Error ID appartamento creato.
+	 */
+	public static function create_from_page( $page_id ) {
+		$page_id = absint( $page_id );
+		$page    = get_post( $page_id );
+
+		if ( ! $page || 'page' !== $page->post_type ) {
+			return new \WP_Error( 'invalid_page', __( 'Pagina non valida.', 'casa-vacanza-prenotazioni' ) );
+		}
+
+		$existing = self::get_apartment_id_by_page( $page_id );
+		if ( $existing ) {
+			return new \WP_Error(
+				'already_linked',
+				sprintf(
+					/* translators: %s: apartment title */
+					__( 'La pagina è già collegata all\'appartamento "%s".', 'casa-vacanza-prenotazioni' ),
+					get_the_title( $existing )
+				)
+			);
+		}
+
+		$apartment_id = wp_insert_post(
+			array(
+				'post_type'    => Post_Types::APPARTAMENTO,
+				'post_title'   => $page->post_title,
+				'post_content' => $page->post_content,
+				'post_excerpt' => $page->post_excerpt,
+				'post_status'  => 'publish' === $page->post_status ? 'publish' : 'draft',
+			),
+			true
+		);
+
+		if ( is_wp_error( $apartment_id ) ) {
+			return $apartment_id;
+		}
+
+		$thumb_id = get_post_thumbnail_id( $page_id );
+		if ( $thumb_id ) {
+			set_post_thumbnail( $apartment_id, $thumb_id );
+		}
+
+		update_post_meta( $apartment_id, self::LINKED_PAGE, $page_id );
+		update_post_meta( $apartment_id, self::MAX_GUESTS, 2 );
+
+		return $apartment_id;
+	}
+
+	/**
+	 * Reindirizza il singolo CPT alla pagina collegata.
+	 */
+	public static function maybe_redirect_to_linked_page() {
+		if ( ! is_singular( Post_Types::APPARTAMENTO ) ) {
+			return;
+		}
+
+		$page_id = (int) get_post_meta( get_queried_object_id(), self::LINKED_PAGE, true );
+		if ( ! $page_id ) {
+			return;
+		}
+
+		$url = get_permalink( $page_id );
+		if ( $url && get_queried_object_id() !== $page_id ) {
+			wp_safe_redirect( $url, 301 );
+			exit;
+		}
 	}
 
 	/**
@@ -267,6 +544,7 @@ class Apartment_Meta {
 			'cvp_cleaning_fee' => isset( $_POST['cvp_cleaning_fee'] ) ? wp_unslash( $_POST['cvp_cleaning_fee'] ) : null,
 			'cvp_services'     => isset( $_POST['cvp_services'] ) ? wp_unslash( $_POST['cvp_services'] ) : null,
 			'cvp_gallery'      => isset( $_POST['cvp_gallery'] ) ? wp_unslash( $_POST['cvp_gallery'] ) : null,
+			'cvp_linked_page_id' => isset( $_POST['cvp_linked_page_id'] ) ? wp_unslash( $_POST['cvp_linked_page_id'] ) : null,
 		);
 
 		self::save_from_array( $post_id, $data );
@@ -320,6 +598,13 @@ class Apartment_Meta {
 
 		if ( array_key_exists( 'cvp_gallery', $settings ) && null !== $settings['cvp_gallery'] ) {
 			update_post_meta( $post_id, self::GALLERY, self::sanitize_gallery( $settings['cvp_gallery'] ) );
+		}
+
+		if ( array_key_exists( 'cvp_linked_page_id', $settings ) && null !== $settings['cvp_linked_page_id'] ) {
+			$result = self::assign_linked_page( $post_id, absint( $settings['cvp_linked_page_id'] ) );
+			if ( is_wp_error( $result ) && is_admin() ) {
+				set_transient( 'cvp_link_page_error_' . get_current_user_id(), $result->get_error_message(), 45 );
+			}
 		}
 	}
 

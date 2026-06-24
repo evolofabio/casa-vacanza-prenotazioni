@@ -17,6 +17,7 @@ class Admin_Dashboard {
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 9 );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_scripts' ) );
+		add_action( 'admin_post_cvp_link_pages', array( __CLASS__, 'handle_link_pages' ) );
 	}
 
 	/**
@@ -74,6 +75,15 @@ class Admin_Dashboard {
 
 		add_submenu_page(
 			'cvp-dashboard',
+			__( 'Collega pagine', 'casa-vacanza-prenotazioni' ),
+			__( 'Collega pagine', 'casa-vacanza-prenotazioni' ),
+			Roles::get_apartments_menu_cap(),
+			'cvp-link-pages',
+			array( __CLASS__, 'render_link_pages' )
+		);
+
+		add_submenu_page(
+			'cvp-dashboard',
 			__( 'Impostazioni', 'casa-vacanza-prenotazioni' ),
 			__( 'Impostazioni', 'casa-vacanza-prenotazioni' ),
 			'manage_options',
@@ -93,6 +103,7 @@ class Admin_Dashboard {
 			'casa-vacanza_page_cvp-bookings',
 			'casa-vacanza_page_cvp-help',
 			'casa-vacanza_page_cvp-settings',
+			'casa-vacanza_page_cvp-link-pages',
 		);
 
 		if ( ! in_array( $hook, $cvp_pages, true ) && strpos( $hook, 'cvp-' ) === false ) {
@@ -202,5 +213,62 @@ class Admin_Dashboard {
 		$update   = GitHub_Updater::get_update_status( isset( $_GET['cvp_update_check'] ) );
 
 		include CVP_PLUGIN_DIR . 'admin/views/settings.php';
+	}
+
+	/**
+	 * Render collegamento pagine esistenti.
+	 */
+	public static function render_link_pages() {
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_die( esc_html__( 'Accesso negato.', 'casa-vacanza-prenotazioni' ) );
+		}
+
+		$unlinked_pages = Apartment_Meta::get_unlinked_pages();
+		$linked_count   = count( Apartment_Meta::get_linked_pages_map() );
+		$created        = isset( $_GET['cvp_created'] ) ? absint( $_GET['cvp_created'] ) : 0;
+		$skipped        = isset( $_GET['cvp_skipped'] ) ? absint( $_GET['cvp_skipped'] ) : 0;
+
+		include CVP_PLUGIN_DIR . 'admin/views/link-pages.php';
+	}
+
+	/**
+	 * Crea appartamenti dalle pagine selezionate.
+	 */
+	public static function handle_link_pages() {
+		if ( ! current_user_can( 'edit_posts' ) ) {
+			wp_die( esc_html__( 'Accesso negato.', 'casa-vacanza-prenotazioni' ) );
+		}
+
+		check_admin_referer( 'cvp_link_pages' );
+
+		$page_ids = isset( $_POST['page_ids'] ) ? array_map( 'absint', (array) wp_unslash( $_POST['page_ids'] ) ) : array();
+		$created  = 0;
+		$skipped  = 0;
+
+		foreach ( $page_ids as $page_id ) {
+			if ( ! $page_id ) {
+				continue;
+			}
+
+			$result = Apartment_Meta::create_from_page( $page_id );
+			if ( is_wp_error( $result ) ) {
+				++$skipped;
+				continue;
+			}
+
+			++$created;
+		}
+
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'        => 'cvp-link-pages',
+					'cvp_created' => $created,
+					'cvp_skipped' => $skipped,
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
 	}
 }

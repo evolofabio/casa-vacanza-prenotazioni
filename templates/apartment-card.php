@@ -30,7 +30,13 @@ $data = \CVP\Shortcodes::get_apartment_data( $apartment_id );
 	<?php endif; ?>
 
 	<div class="cvp-apartment-card__body">
-		<h3 class="cvp-apartment-card__title"><?php echo esc_html( $data['title'] ); ?></h3>
+		<h3 class="cvp-apartment-card__title">
+			<?php if ( ! empty( $data['permalink'] ) ) : ?>
+				<a href="<?php echo esc_url( $data['permalink'] ); ?>"><?php echo esc_html( $data['title'] ); ?></a>
+			<?php else : ?>
+				<?php echo esc_html( $data['title'] ); ?>
+			<?php endif; ?>
+		</h3>
 
 		<div class="cvp-apartment-card__meta">
 			<span class="cvp-price"><?php echo esc_html( $data['price_fmt'] ); ?> <small>/ <?php esc_html_e( 'notte', 'casa-vacanza-prenotazioni' ); ?></small></span>
@@ -59,6 +65,11 @@ $data = \CVP\Shortcodes::get_apartment_data( $apartment_id );
 
 		<?php if ( $show_booking ) : ?>
 			<div class="cvp-apartment-card__actions">
+				<?php if ( ! empty( $data['permalink'] ) ) : ?>
+					<a href="<?php echo esc_url( $data['permalink'] ); ?>" class="cvp-btn cvp-btn--secondary">
+						<?php esc_html_e( 'Vedi scheda', 'casa-vacanza-prenotazioni' ); ?>
+					</a>
+				<?php endif; ?>
 				<button type="button"
 					class="cvp-btn cvp-btn--primary cvp-open-booking"
 					data-apartment-id="<?php echo esc_attr( $data['id'] ); ?>"

@@ -19,6 +19,23 @@ class Meta_Boxes {
 		add_action( 'save_post_' . Post_Types::APPARTAMENTO, array( __CLASS__, 'save_apartment' ), 10, 2 );
 		add_action( 'save_post_' . Post_Types::PRENOTAZIONE, array( __CLASS__, 'save_booking' ), 10, 2 );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue_admin_scripts' ) );
+		add_action( 'admin_notices', array( __CLASS__, 'admin_notices' ) );
+	}
+
+	/**
+	 * Avvisi admin per errori di collegamento pagina.
+	 */
+	public static function admin_notices() {
+		$message = get_transient( 'cvp_link_page_error_' . get_current_user_id() );
+		if ( ! $message ) {
+			return;
+		}
+
+		delete_transient( 'cvp_link_page_error_' . get_current_user_id() );
+		printf(
+			'<div class="notice notice-error is-dismissible"><p>%s</p></div>',
+			esc_html( $message )
+		);
 	}
 
 	/**
@@ -102,11 +119,31 @@ class Meta_Boxes {
 		wp_nonce_field( 'cvp_save_apartment', 'cvp_apartment_nonce' );
 
 		$meta = Apartment_Meta::get_all( $post->ID );
+		$linkable_pages = Apartment_Meta::get_linkable_pages( $post->ID );
 		?>
 		<p class="description" style="margin-bottom:1em;">
-			<?php esc_html_e( 'Compila tutti i campi qui sotto. Puoi anche modificarli da Elementor aprendo il pannello Impostazioni pagina → Dati Appartamento.', 'casa-vacanza-prenotazioni' ); ?>
+			<?php esc_html_e( 'Compila tutti i campi qui sotto. Puoi collegare una pagina WordPress già creata (es. con Elementor) come scheda pubblica dell\'appartamento.', 'casa-vacanza-prenotazioni' ); ?>
 		</p>
 		<table class="form-table cvp-meta-table">
+			<tr>
+				<th><label for="cvp_linked_page_id"><?php esc_html_e( 'Pagina collegata', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<td>
+					<select id="cvp_linked_page_id" name="cvp_linked_page_id" class="regular-text">
+						<option value="0"><?php esc_html_e( '— Nessuna (usa URL appartamento) —', 'casa-vacanza-prenotazioni' ); ?></option>
+						<?php foreach ( $linkable_pages as $page ) : ?>
+							<option value="<?php echo esc_attr( $page->ID ); ?>" <?php selected( $meta['linked_page'], $page->ID ); ?>>
+								<?php echo esc_html( $page->post_title ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+					<p class="description">
+						<?php esc_html_e( 'I widget e il form prenotazione sulla pagina selezionata useranno automaticamente i dati di questo appartamento.', 'casa-vacanza-prenotazioni' ); ?>
+						<?php if ( $meta['linked_page'] ) : ?>
+							<a href="<?php echo esc_url( get_permalink( $meta['linked_page'] ) ); ?>" target="_blank" rel="noopener"><?php esc_html_e( 'Visualizza pagina', 'casa-vacanza-prenotazioni' ); ?></a>
+						<?php endif; ?>
+					</p>
+				</td>
+			</tr>
 			<tr>
 				<th><label for="cvp_price"><?php esc_html_e( 'Prezzo per notte', 'casa-vacanza-prenotazioni' ); ?> <span class="required">*</span></label></th>
 				<td>

@@ -179,6 +179,7 @@ class Post_Types {
 			if ( 'title' === $key ) {
 				$new['cvp_price']  = __( 'Prezzo/notte', 'casa-vacanza-prenotazioni' );
 				$new['cvp_guests'] = __( 'Capienza', 'casa-vacanza-prenotazioni' );
+				$new['cvp_page']   = __( 'Pagina', 'casa-vacanza-prenotazioni' );
 			}
 		}
 		return $new;
@@ -198,6 +199,14 @@ class Post_Types {
 				break;
 			case 'cvp_guests':
 				echo esc_html( get_post_meta( $post_id, '_cvp_max_guests', true ) );
+				break;
+			case 'cvp_page':
+				$page_id = (int) get_post_meta( $post_id, Apartment_Meta::LINKED_PAGE, true );
+				if ( $page_id ) {
+					echo '<a href="' . esc_url( get_edit_post_link( $page_id ) ) . '">' . esc_html( get_the_title( $page_id ) ) . '</a>';
+				} else {
+					echo '—';
+				}
 				break;
 		}
 	}

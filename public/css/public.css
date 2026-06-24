@@ -63,6 +63,23 @@
 	color: #fff;
 }
 
+.cvp-btn--secondary {
+	background: #e2e8f0;
+	color: #0f172a;
+}
+
+.cvp-btn--secondary:hover {
+	background: #cbd5e1;
+	color: #0f172a;
+}
+
+.cvp-apartment-card__actions {
+	margin-top: 16px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
 .cvp-btn--block {
 	width: 100%;
 }
@@ -153,10 +170,6 @@
 	padding: 4px 10px;
 	border-radius: 999px;
 	font-size: 0.85rem;
-}
-
-.cvp-apartment-card__actions {
-	margin-top: 16px;
 }
 
 .cvp-booking-form-wrapper {
