@@ -101,6 +101,7 @@ fi
 echo "--- Required files ---"
 REQUIRED=(
 	"casa-vacanza-prenotazioni.php"
+	"INSTALLAZIONE.txt"
 	"includes/class-plugin.php"
 	"includes/class-github-updater.php"
 	"public/css/public.css"
@@ -127,6 +128,7 @@ rsync -a \
 	--exclude='*.zip' \
 	--exclude='.DS_Store' \
 	--exclude='scripts' \
+	--exclude='tools' \
 	./ "$BUILD_DIR/casa-vacanza-prenotazioni/"
 
 ZIP_MAIN="$BUILD_DIR/casa-vacanza-prenotazioni/casa-vacanza-prenotazioni.php"

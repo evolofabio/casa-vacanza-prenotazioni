@@ -1,0 +1,23 @@
+=== Installazione Casa Vacanza Prenotazioni ===
+
+METODO CONSIGLIATO (WordPress)
+1. Plugin → Aggiungi nuovo → Carica plugin
+2. Scegli il file casa-vacanza-prenotazioni.zip dalla release GitHub
+3. Installa ora → Attiva plugin
+
+NON estrarre lo zip manualmente nel file manager: crea spesso cartelle sbagliate.
+
+STRUTTURA CORRETTA SUL SERVER
+wp-content/plugins/casa-vacanza-prenotazioni/casa-vacanza-prenotazioni.php
+
+ERRORE "Il file del plugin non esiste"
+- Il database punta ancora a un percorso eliminato
+- Elimina tutte le cartelle casa-vacanza-prenotazioni* in wp-content/plugins/
+- Reinstalla lo zip da Plugin → Carica plugin
+- Oppure usa tools/cvp-recovery.php dalla root del sito (vedi repository GitHub)
+
+AGGIORNAMENTI
+- Usa sempre lo zip dalla pagina Releases GitHub (tag v*)
+- Non usare Plugin → Aggiorna se hai più copie del plugin nelle cartelle
+
+Release: https://github.com/evolofabio/casa-vacanza-prenotazioni/releases
