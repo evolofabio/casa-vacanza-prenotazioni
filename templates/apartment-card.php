@@ -46,6 +46,9 @@ $data = \CVP\Shortcodes::get_apartment_data( $apartment_id );
 			<?php if ( ! empty( $data['bedrooms'] ) ) : ?>
 				<span class="cvp-bedrooms"><?php echo esc_html( sprintf( __( '%d camere', 'casa-vacanza-prenotazioni' ), $data['bedrooms'] ) ); ?></span>
 			<?php endif; ?>
+			<?php if ( ! empty( $data['beds'] ) ) : ?>
+				<span class="cvp-beds"><?php echo esc_html( sprintf( __( '%d posti letto', 'casa-vacanza-prenotazioni' ), $data['beds'] ) ); ?></span>
+			<?php endif; ?>
 			<?php if ( ! empty( $data['location'] ) ) : ?>
 				<span class="cvp-location"><?php echo esc_html( $data['location'] ); ?></span>
 			<?php endif; ?>

@@ -242,6 +242,20 @@
 	color: #991b1b;
 }
 
+.cvp-date-feedback {
+	padding: 10px 12px;
+	border-radius: 8px;
+	margin-bottom: 12px;
+	font-size: 0.9rem;
+	background: #ecfdf5;
+	color: #065f46;
+}
+
+.cvp-date-feedback.is-error {
+	background: #fef2f2;
+	color: #991b1b;
+}
+
 .cvp-booking-modal {
 	position: fixed;
 	inset: 0;

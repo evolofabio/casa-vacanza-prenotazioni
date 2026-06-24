@@ -82,6 +82,16 @@ class Apartment_Details_Widget extends Widget_Base {
 		);
 
 		$this->add_control(
+			'show_beds',
+			array(
+				'label'        => __( 'Mostra posti letto', 'casa-vacanza-prenotazioni' ),
+				'type'         => Controls_Manager::SWITCHER,
+				'return_value' => 'yes',
+				'default'      => 'yes',
+			)
+		);
+
+		$this->add_control(
 			'show_bathrooms',
 			array(
 				'label'        => __( 'Mostra bagni', 'casa-vacanza-prenotazioni' ),
@@ -144,6 +154,9 @@ class Apartment_Details_Widget extends Widget_Base {
 			<?php endif; ?>
 			<?php if ( 'yes' === $settings['show_bedrooms'] && $data['bedrooms'] ) : ?>
 				<li><strong><?php esc_html_e( 'Camere', 'casa-vacanza-prenotazioni' ); ?>:</strong> <?php echo esc_html( (string) $data['bedrooms'] ); ?></li>
+			<?php endif; ?>
+			<?php if ( 'yes' === $settings['show_beds'] && $data['beds'] ) : ?>
+				<li><strong><?php esc_html_e( 'Posti letto', 'casa-vacanza-prenotazioni' ); ?>:</strong> <?php echo esc_html( (string) $data['beds'] ); ?></li>
 			<?php endif; ?>
 			<?php if ( 'yes' === $settings['show_bathrooms'] && $data['bathrooms'] ) : ?>
 				<li><strong><?php esc_html_e( 'Bagni', 'casa-vacanza-prenotazioni' ); ?>:</strong> <?php echo esc_html( (string) $data['bathrooms'] ); ?></li>

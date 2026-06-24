@@ -27,14 +27,25 @@ class Meta_Boxes {
 	 */
 	public static function admin_notices() {
 		$message = get_transient( 'cvp_link_page_error_' . get_current_user_id() );
-		if ( ! $message ) {
+		if ( $message ) {
+			delete_transient( 'cvp_link_page_error_' . get_current_user_id() );
+			printf(
+				'<div class="notice notice-error is-dismissible"><p>%s</p></div>',
+				esc_html( $message )
+			);
+		}
+
+		$notice = get_transient( 'cvp_admin_notice_' . get_current_user_id() );
+		if ( ! $notice || ! is_array( $notice ) ) {
 			return;
 		}
 
-		delete_transient( 'cvp_link_page_error_' . get_current_user_id() );
+		delete_transient( 'cvp_admin_notice_' . get_current_user_id() );
+		$type = 'error' === ( $notice['type'] ?? '' ) ? 'error' : 'success';
 		printf(
-			'<div class="notice notice-error is-dismissible"><p>%s</p></div>',
-			esc_html( $message )
+			'<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>',
+			esc_attr( $type ),
+			esc_html( $notice['message'] ?? '' )
 		);
 	}
 
@@ -62,10 +73,10 @@ class Meta_Boxes {
 
 		add_meta_box(
 			'cvp_apartment_availability',
-			__( 'Calendario Disponibilità', 'casa-vacanza-prenotazioni' ),
+			__( 'Disponibilità e calendario', 'casa-vacanza-prenotazioni' ),
 			array( __CLASS__, 'render_availability_meta_box' ),
 			Post_Types::APPARTAMENTO,
-			'side',
+			'normal',
 			'default'
 		);
 
@@ -88,25 +99,37 @@ class Meta_Boxes {
 		global $post_type;
 
 		if ( ! in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
-			return;
+			if ( 'edit.php' !== $hook || Post_Types::APPARTAMENTO !== $post_type ) {
+				return;
+			}
 		}
 
 		if ( Post_Types::APPARTAMENTO === $post_type ) {
-			wp_enqueue_script( 'jquery-ui-sortable' );
-			wp_enqueue_media();
-			wp_enqueue_script(
-				'cvp-admin-gallery',
-				CVP_PLUGIN_URL . 'admin/js/gallery.js',
-				array( 'jquery' ),
-				CVP_VERSION,
-				true
-			);
 			wp_enqueue_style(
 				'cvp-admin',
 				CVP_PLUGIN_URL . 'admin/css/admin.css',
 				array(),
 				CVP_VERSION
 			);
+
+			if ( in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
+				wp_enqueue_script( 'jquery-ui-sortable' );
+				wp_enqueue_media();
+				wp_enqueue_script(
+					'cvp-admin-gallery',
+					CVP_PLUGIN_URL . 'admin/js/gallery.js',
+					array( 'jquery' ),
+					CVP_VERSION,
+					true
+				);
+				wp_enqueue_script(
+					'cvp-admin-availability',
+					CVP_PLUGIN_URL . 'admin/js/availability.js',
+					array( 'jquery' ),
+					CVP_VERSION,
+					true
+				);
+			}
 		}
 	}
 
@@ -151,9 +174,16 @@ class Meta_Boxes {
 				</td>
 			</tr>
 			<tr>
-				<th><label for="cvp_max_guests"><?php esc_html_e( 'Capienza massima', 'casa-vacanza-prenotazioni' ); ?> <span class="required">*</span></label></th>
+				<th><label for="cvp_max_guests"><?php esc_html_e( 'Capienza massima (ospiti)', 'casa-vacanza-prenotazioni' ); ?> <span class="required">*</span></label></th>
 				<td>
 					<input type="number" min="1" id="cvp_max_guests" name="cvp_max_guests" value="<?php echo esc_attr( $meta['max_guests'] ); ?>" class="small-text" required />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="cvp_beds"><?php esc_html_e( 'Posti letto', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<td>
+					<input type="number" min="0" id="cvp_beds" name="cvp_beds" value="<?php echo esc_attr( $meta['beds'] ); ?>" class="small-text" />
+					<p class="description"><?php esc_html_e( 'Numero totale di posti letto disponibili.', 'casa-vacanza-prenotazioni' ); ?></p>
 				</td>
 			</tr>
 			<tr>
@@ -236,22 +266,76 @@ class Meta_Boxes {
 	 * @param \WP_Post $post Post corrente.
 	 */
 	public static function render_availability_meta_box( $post ) {
-		$bookings = Availability::get_blocked_dates_for_apartment( $post->ID );
+		$meta           = Apartment_Meta::get_all( $post->ID );
+		$bookings       = Availability::get_blocked_dates_for_apartment( $post->ID );
+		$manual_blocks  = $meta['manual_blocks'];
+		$all_blocked    = Availability::get_all_blocked_ranges( $post->ID );
 		?>
-		<div class="cvp-availability-sidebar">
-			<p><?php esc_html_e( 'Date bloccate da prenotazioni in attesa o confermate:', 'casa-vacanza-prenotazioni' ); ?></p>
-			<?php if ( empty( $bookings ) ) : ?>
+		<div class="cvp-availability-admin">
+			<h4><?php esc_html_e( 'Periodo di apertura', 'casa-vacanza-prenotazioni' ); ?></h4>
+			<p class="description"><?php esc_html_e( 'Lascia vuoto per rendere l\'appartamento prenotabile tutto l\'anno (salvo blocchi e prenotazioni).', 'casa-vacanza-prenotazioni' ); ?></p>
+			<table class="form-table cvp-meta-table">
+				<tr>
+					<th><label for="cvp_available_from"><?php esc_html_e( 'Disponibile dal (check-in)', 'casa-vacanza-prenotazioni' ); ?></label></th>
+					<td><input type="date" id="cvp_available_from" name="cvp_available_from" value="<?php echo esc_attr( $meta['available_from'] ); ?>" /></td>
+				</tr>
+				<tr>
+					<th><label for="cvp_available_to"><?php esc_html_e( 'Disponibile fino al (check-out)', 'casa-vacanza-prenotazioni' ); ?></label></th>
+					<td><input type="date" id="cvp_available_to" name="cvp_available_to" value="<?php echo esc_attr( $meta['available_to'] ); ?>" /></td>
+				</tr>
+			</table>
+
+			<h4><?php esc_html_e( 'Blocchi manuali', 'casa-vacanza-prenotazioni' ); ?></h4>
+			<p class="description"><?php esc_html_e( 'Aggiungi periodi non prenotabili (manutenzione, uso personale, ecc.).', 'casa-vacanza-prenotazioni' ); ?></p>
+			<div class="cvp-manual-blocks" data-blocks='<?php echo esc_attr( wp_json_encode( $manual_blocks ) ); ?>'>
+				<table class="widefat striped cvp-manual-blocks-table">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Check-in', 'casa-vacanza-prenotazioni' ); ?></th>
+							<th><?php esc_html_e( 'Check-out', 'casa-vacanza-prenotazioni' ); ?></th>
+							<th><?php esc_html_e( 'Nota', 'casa-vacanza-prenotazioni' ); ?></th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody id="cvp-manual-blocks-body">
+						<?php foreach ( $manual_blocks as $index => $block ) : ?>
+							<tr class="cvp-manual-block-row">
+								<td><input type="date" name="cvp_manual_blocks[<?php echo esc_attr( $index ); ?>][check_in]" value="<?php echo esc_attr( $block['check_in'] ); ?>" /></td>
+								<td><input type="date" name="cvp_manual_blocks[<?php echo esc_attr( $index ); ?>][check_out]" value="<?php echo esc_attr( $block['check_out'] ); ?>" /></td>
+								<td><input type="text" class="regular-text" name="cvp_manual_blocks[<?php echo esc_attr( $index ); ?>][note]" value="<?php echo esc_attr( $block['note'] ); ?>" /></td>
+								<td><button type="button" class="button cvp-remove-manual-block">&times;</button></td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+				<p><button type="button" class="button" id="cvp-add-manual-block"><?php esc_html_e( 'Aggiungi blocco', 'casa-vacanza-prenotazioni' ); ?></button></p>
+			</div>
+
+			<h4><?php esc_html_e( 'Calendario aggiornato (prenotazioni + blocchi)', 'casa-vacanza-prenotazioni' ); ?></h4>
+			<p class="description"><?php esc_html_e( 'Le prenotazioni in attesa o confermate bloccano automaticamente le date.', 'casa-vacanza-prenotazioni' ); ?></p>
+			<?php if ( empty( $all_blocked ) ) : ?>
 				<p><em><?php esc_html_e( 'Nessun blocco attivo.', 'casa-vacanza-prenotazioni' ); ?></em></p>
 			<?php else : ?>
 				<ul class="cvp-blocked-dates">
-					<?php foreach ( $bookings as $booking ) : ?>
-						<li>
-							<strong><?php echo esc_html( Post_Types::format_date( $booking['check_in'] ) . ' – ' . Post_Types::format_date( $booking['check_out'] ) ); ?></strong>
+					<?php foreach ( $all_blocked as $block ) : ?>
+						<li class="cvp-blocked-dates__item cvp-blocked-dates__item--<?php echo esc_attr( $block['type'] ); ?>">
+							<strong><?php echo esc_html( Post_Types::format_date( $block['check_in'] ) . ' – ' . Post_Types::format_date( $block['check_out'] ) ); ?></strong>
 							<br>
-							<small><?php echo esc_html( $booking['status_label'] ); ?></small>
+							<small>
+								<?php echo esc_html( $block['label'] ); ?>
+								<?php if ( 'booking' === $block['type'] ) : ?>
+									(<?php esc_html_e( 'automatico', 'casa-vacanza-prenotazioni' ); ?>)
+								<?php endif; ?>
+							</small>
 						</li>
 					<?php endforeach; ?>
 				</ul>
+			<?php endif; ?>
+
+			<?php if ( ! empty( $bookings ) ) : ?>
+				<p>
+					<a href="<?php echo esc_url( admin_url( 'admin.php?page=cvp-bookings' ) ); ?>"><?php esc_html_e( 'Gestisci prenotazioni', 'casa-vacanza-prenotazioni' ); ?></a>
+				</p>
 			<?php endif; ?>
 		</div>
 		<?php
@@ -371,6 +455,10 @@ class Meta_Boxes {
 		}
 
 		Apartment_Meta::save_from_request( $post_id );
+
+		if ( isset( $_POST['cvp_manual_blocks'] ) && is_array( $_POST['cvp_manual_blocks'] ) ) {
+			Apartment_Meta::save_manual_blocks( $post_id, wp_unslash( $_POST['cvp_manual_blocks'] ) );
+		}
 	}
 
 	/**
@@ -392,14 +480,32 @@ class Meta_Boxes {
 			return;
 		}
 
-		$old_status = get_post_meta( $post_id, '_cvp_status', true );
-		$new_status = isset( $_POST['cvp_status'] ) ? sanitize_text_field( wp_unslash( $_POST['cvp_status'] ) ) : Post_Types::STATUS_IN_ATTESA;
+		$old_status   = get_post_meta( $post_id, '_cvp_status', true );
+		$new_status   = isset( $_POST['cvp_status'] ) ? sanitize_text_field( wp_unslash( $_POST['cvp_status'] ) ) : Post_Types::STATUS_IN_ATTESA;
+		$apartment_id = isset( $_POST['cvp_apartment_id'] ) ? absint( $_POST['cvp_apartment_id'] ) : 0;
+		$check_in     = isset( $_POST['cvp_check_in'] ) ? sanitize_text_field( wp_unslash( $_POST['cvp_check_in'] ) ) : '';
+		$check_out    = isset( $_POST['cvp_check_out'] ) ? sanitize_text_field( wp_unslash( $_POST['cvp_check_out'] ) ) : '';
+
+		if ( $apartment_id && in_array( $new_status, Availability::blocking_statuses(), true ) ) {
+			$validation = Availability::validate_dates( $check_in, $check_out, $apartment_id, $post_id );
+			if ( is_wp_error( $validation ) ) {
+				set_transient(
+					'cvp_admin_notice_' . get_current_user_id(),
+					array(
+						'type'    => 'error',
+						'message' => $validation->get_error_message(),
+					),
+					30
+				);
+				return;
+			}
+		}
 
 		$fields = array(
 			'_cvp_status'         => $new_status,
-			'_cvp_apartment_id'   => isset( $_POST['cvp_apartment_id'] ) ? absint( $_POST['cvp_apartment_id'] ) : 0,
-			'_cvp_check_in'       => isset( $_POST['cvp_check_in'] ) ? sanitize_text_field( wp_unslash( $_POST['cvp_check_in'] ) ) : '',
-			'_cvp_check_out'      => isset( $_POST['cvp_check_out'] ) ? sanitize_text_field( wp_unslash( $_POST['cvp_check_out'] ) ) : '',
+			'_cvp_apartment_id'   => $apartment_id,
+			'_cvp_check_in'       => $check_in,
+			'_cvp_check_out'      => $check_out,
 			'_cvp_guests'         => isset( $_POST['cvp_guests'] ) ? absint( $_POST['cvp_guests'] ) : 1,
 			'_cvp_customer_name'  => isset( $_POST['cvp_customer_name'] ) ? sanitize_text_field( wp_unslash( $_POST['cvp_customer_name'] ) ) : '',
 			'_cvp_customer_email' => isset( $_POST['cvp_customer_email'] ) ? sanitize_email( wp_unslash( $_POST['cvp_customer_email'] ) ) : '',

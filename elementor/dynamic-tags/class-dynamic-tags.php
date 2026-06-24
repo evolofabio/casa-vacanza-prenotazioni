@@ -48,6 +48,7 @@ class Dynamic_Tags {
 		$manager->register( new Price_Tag() );
 		$manager->register( new Guests_Tag() );
 		$manager->register( new Bedrooms_Tag() );
+		$manager->register( new Beds_Tag() );
 		$manager->register( new Bathrooms_Tag() );
 		$manager->register( new Location_Tag() );
 		$manager->register( new Cleaning_Fee_Tag() );
@@ -143,6 +144,30 @@ class Bedrooms_Tag extends Base_Apartment_Tag {
 		}
 
 		echo esc_html( (string) get_post_meta( $post_id, Apartment_Meta::BEDROOMS, true ) );
+	}
+}
+
+class Beds_Tag extends Base_Apartment_Tag {
+
+	public function get_name() {
+		return 'cvp-beds';
+	}
+
+	public function get_title() {
+		return __( 'Posti letto', 'casa-vacanza-prenotazioni' );
+	}
+
+	public function get_categories() {
+		return array( TagsModule::TEXT_CATEGORY );
+	}
+
+	public function render() {
+		$post_id = $this->get_apartment_id();
+		if ( ! $post_id ) {
+			return;
+		}
+
+		echo esc_html( (string) get_post_meta( $post_id, Apartment_Meta::BEDS, true ) );
 	}
 }
 

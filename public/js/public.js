@@ -6,6 +6,39 @@
 		$msg.removeAttr('hidden').removeClass('is-success is-error').addClass(type === 'success' ? 'is-success' : 'is-error').text(message);
 	}
 
+	function showDateFeedback($form, message, isError) {
+		var $feedback = $form.find('.cvp-date-feedback');
+		if (!message) {
+			$feedback.attr('hidden', true).text('');
+			return;
+		}
+		$feedback.removeAttr('hidden').toggleClass('is-error', !!isError).text(message);
+	}
+
+	function applyAvailabilityConstraints($form) {
+		var raw = $form.attr('data-availability');
+		if (!raw) {
+			return;
+		}
+
+		var availability;
+		try {
+			availability = JSON.parse(raw);
+		} catch (e) {
+			return;
+		}
+
+		var $checkIn = $form.find('[name="check_in"]');
+		var $checkOut = $form.find('[name="check_out"]');
+		var today = new Date().toISOString().slice(0, 10);
+		var minDate = availability.available_from && availability.available_from > today ? availability.available_from : today;
+
+		$checkIn.attr('min', minDate);
+		if (availability.available_to) {
+			$checkOut.attr('max', availability.available_to);
+		}
+	}
+
 	function updatePrice($form) {
 		var apartmentId = $form.data('apartment-id');
 		var checkIn = $form.find('[name="check_in"]').val();
@@ -14,6 +47,7 @@
 
 		if (!apartmentId || !checkIn || !checkOut) {
 			$summary.attr('hidden', true);
+			showDateFeedback($form, '', false);
 			return;
 		}
 
@@ -26,14 +60,20 @@
 		}).done(function (response) {
 			if (response.success) {
 				$summary.removeAttr('hidden').find('.cvp-price-summary__value').text(response.data.total);
+				showDateFeedback($form, '', false);
 			} else {
 				$summary.attr('hidden', true);
+				showDateFeedback($form, response.data && response.data.message ? response.data.message : cvpPublic.i18n.error, true);
 			}
 		});
 	}
 
 	$(document).on('change', '.cvp-booking-form .cvp-date-input, .cvp-booking-form [name="check_in"], .cvp-booking-form [name="check_out"]', function () {
 		updatePrice($(this).closest('.cvp-booking-form'));
+	});
+
+	$('.cvp-booking-form').each(function () {
+		applyAvailabilityConstraints($(this));
 	});
 
 	$(document).on('submit', '.cvp-booking-form', function (e) {

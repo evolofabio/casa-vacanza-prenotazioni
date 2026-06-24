@@ -9,8 +9,9 @@ defined( 'ABSPATH' ) || exit;
 
 \CVP\Assets::enqueue_if_needed();
 
-$apt_data   = \CVP\Shortcodes::get_apartment_data( $apartment_id );
-$max_guests = (int) $apt_data['max_guests'];
+$apt_data     = \CVP\Shortcodes::get_apartment_data( $apartment_id );
+$max_guests   = (int) $apt_data['max_guests'];
+$availability = \CVP\Availability::get_frontend_availability( $apartment_id );
 ?>
 <div class="cvp-booking-form-wrapper">
 	<h3 class="cvp-booking-form__title">
@@ -23,7 +24,7 @@ $max_guests = (int) $apt_data['max_guests'];
 		?>
 	</h3>
 
-	<form class="cvp-booking-form" data-apartment-id="<?php echo esc_attr( $apartment_id ); ?>">
+	<form class="cvp-booking-form" data-apartment-id="<?php echo esc_attr( $apartment_id ); ?>" data-availability="<?php echo esc_attr( wp_json_encode( $availability ) ); ?>">
 		<input type="hidden" name="apartment_id" value="<?php echo esc_attr( $apartment_id ); ?>" />
 
 		<div class="cvp-form-row cvp-form-row--2">
@@ -40,7 +41,12 @@ $max_guests = (int) $apt_data['max_guests'];
 		<div class="cvp-form-field">
 			<label for="cvp_bf_guests_<?php echo esc_attr( $apartment_id ); ?>"><?php esc_html_e( 'Numero ospiti', 'casa-vacanza-prenotazioni' ); ?></label>
 			<input type="number" id="cvp_bf_guests_<?php echo esc_attr( $apartment_id ); ?>" name="guests" value="<?php echo esc_attr( $guests ); ?>" min="1" <?php echo $max_guests ? 'max="' . esc_attr( $max_guests ) . '"' : ''; ?> required />
+			<?php if ( ! empty( $apt_data['beds'] ) ) : ?>
+				<p class="description"><?php echo esc_html( sprintf( __( 'Posti letto: %d', 'casa-vacanza-prenotazioni' ), $apt_data['beds'] ) ); ?></p>
+			<?php endif; ?>
 		</div>
+
+		<div class="cvp-date-feedback" role="status" hidden></div>
 
 		<div class="cvp-price-summary" hidden>
 			<span class="cvp-price-summary__label"><?php esc_html_e( 'Totale stimato:', 'casa-vacanza-prenotazioni' ); ?></span>

@@ -40,7 +40,7 @@ class Booking {
 			return new \WP_Error( 'invalid_apartment', __( 'Appartamento non valido.', 'casa-vacanza-prenotazioni' ) );
 		}
 
-		$date_validation = Availability::validate_dates( $check_in, $check_out );
+		$date_validation = Availability::validate_dates( $check_in, $check_out, $apartment_id );
 		if ( is_wp_error( $date_validation ) ) {
 			return $date_validation;
 		}

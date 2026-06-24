@@ -64,6 +64,34 @@ class Apartment_Document {
 		);
 
 		$document->add_control(
+			'cvp_beds',
+			array(
+				'label'   => __( 'Posti letto', 'casa-vacanza-prenotazioni' ),
+				'type'    => Controls_Manager::NUMBER,
+				'min'     => 0,
+				'default' => $meta['beds'],
+			)
+		);
+
+		$document->add_control(
+			'cvp_available_from',
+			array(
+				'label'   => __( 'Disponibile dal', 'casa-vacanza-prenotazioni' ),
+				'type'    => Controls_Manager::DATE_TIME,
+				'default' => $meta['available_from'] ? $meta['available_from'] . ' 00:00' : '',
+			)
+		);
+
+		$document->add_control(
+			'cvp_available_to',
+			array(
+				'label'   => __( 'Disponibile fino al (check-out)', 'casa-vacanza-prenotazioni' ),
+				'type'    => Controls_Manager::DATE_TIME,
+				'default' => $meta['available_to'] ? $meta['available_to'] . ' 00:00' : '',
+			)
+		);
+
+		$document->add_control(
 			'cvp_price',
 			array(
 				'label'   => __( 'Prezzo per notte', 'casa-vacanza-prenotazioni' ),

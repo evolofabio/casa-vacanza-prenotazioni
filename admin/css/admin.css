@@ -101,6 +101,34 @@
 
 .cvp-blocked-dates li { margin-bottom: 8px; }
 
+.cvp-blocked-dates__item--booking {
+	border-left: 3px solid #dba617;
+	padding-left: 10px;
+}
+
+.cvp-blocked-dates__item--manual {
+	border-left: 3px solid #646970;
+	padding-left: 10px;
+}
+
+.cvp-availability-admin h4 {
+	margin: 1.5em 0 0.5em;
+}
+
+.cvp-availability-admin h4:first-child {
+	margin-top: 0;
+}
+
+.cvp-manual-blocks-table input[type="date"],
+.cvp-manual-blocks-table input[type="text"] {
+	width: 100%;
+}
+
+.cvp-manual-blocks-table .cvp-remove-manual-block {
+	min-width: 32px;
+	padding: 0 8px;
+}
+
 .cvp-admin-panel--shortcodes {
 	margin-bottom: 24px;
 }

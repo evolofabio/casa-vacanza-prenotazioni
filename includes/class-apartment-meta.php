@@ -15,12 +15,16 @@ class Apartment_Meta {
 	const MAX_GUESTS   = '_cvp_max_guests';
 	const BEDROOMS     = '_cvp_bedrooms';
 	const BATHROOMS    = '_cvp_bathrooms';
+	const BEDS         = '_cvp_beds';
 	const LOCATION     = '_cvp_location';
 	const MIN_NIGHTS   = '_cvp_min_nights';
 	const CLEANING_FEE = '_cvp_cleaning_fee';
 	const SERVICES     = '_cvp_services';
 	const GALLERY      = '_cvp_gallery';
 	const LINKED_PAGE  = '_cvp_linked_page_id';
+	const AVAILABLE_FROM = '_cvp_available_from';
+	const AVAILABLE_TO   = '_cvp_available_to';
+	const MANUAL_BLOCKS  = '_cvp_manual_blocks';
 
 	/**
 	 * Inizializza hook.
@@ -81,6 +85,18 @@ class Apartment_Meta {
 		register_post_meta(
 			Post_Types::APPARTAMENTO,
 			self::BATHROOMS,
+			array(
+				'type'              => 'integer',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'auth_callback'     => $auth,
+				'sanitize_callback' => 'absint',
+			)
+		);
+
+		register_post_meta(
+			Post_Types::APPARTAMENTO,
+			self::BEDS,
 			array(
 				'type'              => 'integer',
 				'single'            => true,
@@ -179,6 +195,107 @@ class Apartment_Meta {
 				'sanitize_callback' => 'absint',
 			)
 		);
+
+		register_post_meta(
+			Post_Types::APPARTAMENTO,
+			self::AVAILABLE_FROM,
+			array(
+				'type'              => 'string',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'auth_callback'     => $auth,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_date' ),
+			)
+		);
+
+		register_post_meta(
+			Post_Types::APPARTAMENTO,
+			self::AVAILABLE_TO,
+			array(
+				'type'              => 'string',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'auth_callback'     => $auth,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_date' ),
+			)
+		);
+
+		register_post_meta(
+			Post_Types::APPARTAMENTO,
+			self::MANUAL_BLOCKS,
+			array(
+				'type'              => 'array',
+				'single'            => true,
+				'show_in_rest'      => false,
+				'auth_callback'     => $auth,
+				'sanitize_callback' => array( __CLASS__, 'sanitize_manual_blocks' ),
+			)
+		);
+	}
+
+	/**
+	 * Sanitizza data Y-m-d.
+	 *
+	 * @param mixed $value Valore.
+	 * @return string
+	 */
+	public static function sanitize_date( $value ) {
+		$value = sanitize_text_field( (string) $value );
+		if ( ! $value ) {
+			return '';
+		}
+
+		$time = strtotime( $value );
+		return $time ? gmdate( 'Y-m-d', $time ) : '';
+	}
+
+	/**
+	 * Sanitizza blocchi manuali calendario.
+	 *
+	 * @param mixed $value Valore grezzo.
+	 * @return array
+	 */
+	public static function sanitize_manual_blocks( $value ) {
+		if ( is_string( $value ) ) {
+			$decoded = json_decode( $value, true );
+			$value   = is_array( $decoded ) ? $decoded : array();
+		}
+
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$blocks = array();
+		foreach ( $value as $block ) {
+			if ( ! is_array( $block ) ) {
+				continue;
+			}
+
+			$check_in  = self::sanitize_date( isset( $block['check_in'] ) ? $block['check_in'] : '' );
+			$check_out = self::sanitize_date( isset( $block['check_out'] ) ? $block['check_out'] : '' );
+
+			if ( ! $check_in || ! $check_out || $check_out <= $check_in ) {
+				continue;
+			}
+
+			$blocks[] = array(
+				'check_in'  => $check_in,
+				'check_out' => $check_out,
+				'note'      => isset( $block['note'] ) ? sanitize_text_field( $block['note'] ) : '',
+			);
+		}
+
+		return $blocks;
+	}
+
+	/**
+	 * Salva blocchi manuali.
+	 *
+	 * @param int   $post_id ID appartamento.
+	 * @param mixed $value   Blocchi grezzi.
+	 */
+	public static function save_manual_blocks( $post_id, $value ) {
+		update_post_meta( $post_id, self::MANUAL_BLOCKS, self::sanitize_manual_blocks( $value ) );
 	}
 
 	/**
@@ -256,6 +373,7 @@ class Apartment_Meta {
 			'max_guests'   => (int) get_post_meta( $post_id, self::MAX_GUESTS, true ),
 			'bedrooms'     => (int) get_post_meta( $post_id, self::BEDROOMS, true ),
 			'bathrooms'    => (int) get_post_meta( $post_id, self::BATHROOMS, true ),
+			'beds'         => (int) get_post_meta( $post_id, self::BEDS, true ),
 			'location'     => (string) get_post_meta( $post_id, self::LOCATION, true ),
 			'min_nights'   => (int) get_post_meta( $post_id, self::MIN_NIGHTS, true ),
 			'cleaning_fee' => $cleaning_fee,
@@ -263,6 +381,9 @@ class Apartment_Meta {
 			'services'     => $services,
 			'gallery'      => array_map( 'absint', $gallery ),
 			'linked_page'  => (int) get_post_meta( $post_id, self::LINKED_PAGE, true ),
+			'available_from' => (string) get_post_meta( $post_id, self::AVAILABLE_FROM, true ),
+			'available_to'   => (string) get_post_meta( $post_id, self::AVAILABLE_TO, true ),
+			'manual_blocks'  => Availability::get_manual_blocks( $post_id ),
 		);
 	}
 
@@ -539,9 +660,12 @@ class Apartment_Meta {
 			'cvp_max_guests'   => isset( $_POST['cvp_max_guests'] ) ? wp_unslash( $_POST['cvp_max_guests'] ) : null,
 			'cvp_bedrooms'     => isset( $_POST['cvp_bedrooms'] ) ? wp_unslash( $_POST['cvp_bedrooms'] ) : null,
 			'cvp_bathrooms'    => isset( $_POST['cvp_bathrooms'] ) ? wp_unslash( $_POST['cvp_bathrooms'] ) : null,
+			'cvp_beds'         => isset( $_POST['cvp_beds'] ) ? wp_unslash( $_POST['cvp_beds'] ) : null,
 			'cvp_location'     => isset( $_POST['cvp_location'] ) ? wp_unslash( $_POST['cvp_location'] ) : null,
 			'cvp_min_nights'   => isset( $_POST['cvp_min_nights'] ) ? wp_unslash( $_POST['cvp_min_nights'] ) : null,
 			'cvp_cleaning_fee' => isset( $_POST['cvp_cleaning_fee'] ) ? wp_unslash( $_POST['cvp_cleaning_fee'] ) : null,
+			'cvp_available_from' => isset( $_POST['cvp_available_from'] ) ? wp_unslash( $_POST['cvp_available_from'] ) : null,
+			'cvp_available_to'   => isset( $_POST['cvp_available_to'] ) ? wp_unslash( $_POST['cvp_available_to'] ) : null,
 			'cvp_services'     => isset( $_POST['cvp_services'] ) ? wp_unslash( $_POST['cvp_services'] ) : null,
 			'cvp_gallery'      => isset( $_POST['cvp_gallery'] ) ? wp_unslash( $_POST['cvp_gallery'] ) : null,
 			'cvp_linked_page_id' => isset( $_POST['cvp_linked_page_id'] ) ? wp_unslash( $_POST['cvp_linked_page_id'] ) : null,
@@ -566,9 +690,12 @@ class Apartment_Meta {
 			'cvp_max_guests'   => self::MAX_GUESTS,
 			'cvp_bedrooms'     => self::BEDROOMS,
 			'cvp_bathrooms'    => self::BATHROOMS,
+			'cvp_beds'         => self::BEDS,
 			'cvp_location'     => self::LOCATION,
 			'cvp_min_nights'   => self::MIN_NIGHTS,
 			'cvp_cleaning_fee' => self::CLEANING_FEE,
+			'cvp_available_from' => self::AVAILABLE_FROM,
+			'cvp_available_to'   => self::AVAILABLE_TO,
 		);
 
 		foreach ( $map as $key => $meta_key ) {
@@ -583,8 +710,8 @@ class Apartment_Meta {
 				$value = max( 1, absint( $value ) );
 			} elseif ( self::MIN_NIGHTS === $meta_key ) {
 				$value = max( 0, absint( $value ) );
-			} elseif ( self::LOCATION === $meta_key ) {
-				$value = sanitize_text_field( $value );
+			} elseif ( in_array( $meta_key, array( self::AVAILABLE_FROM, self::AVAILABLE_TO, self::LOCATION ), true ) ) {
+				$value = self::LOCATION === $meta_key ? sanitize_text_field( $value ) : self::sanitize_date( $value );
 			} else {
 				$value = absint( $value );
 			}

@@ -4,7 +4,7 @@ Tags: prenotazioni, booking, vacation rental, casa vacanza, elementor
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.9
+Stable tag: 1.1.0
 License: GPLv2 or later
 
 Sistema completo di prenotazioni per case vacanza.
@@ -53,6 +53,13 @@ Cerca "Casa Vacanza" nell'inserter blocchi:
 Widget disponibili nella categoria **Casa Vacanza**.
 
 == Changelog ==
+
+= 1.1.0 =
+* Campo posti letto per ogni appartamento (admin, Elementor, modifica rapida)
+* Periodo di apertura (date disponibili) e blocchi manuali nel meta box Disponibilità
+* Calendario admin aggiornato automaticamente con prenotazioni in attesa/confermate
+* Validazione date nel form prenotazione e in modifica prenotazione admin
+* Dynamic tag Elementor "Posti letto"
 
 = 1.0.0 =
 * Release iniziale
