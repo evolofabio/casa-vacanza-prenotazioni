@@ -34,7 +34,7 @@ jobs:
       - name: Build clean plugin zip
         run: |
           mkdir -p build/casa-vacanza-prenotazioni
-			rsync -a \
+          rsync -a \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='scripts' \
