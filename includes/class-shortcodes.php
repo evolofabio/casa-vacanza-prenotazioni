@@ -40,7 +40,10 @@ class Shortcodes {
 		$check_out = isset( $_GET['cvp_check_out'] ) ? sanitize_text_field( wp_unslash( $_GET['cvp_check_out'] ) ) : '';
 		$guests    = isset( $_GET['cvp_guests'] ) ? absint( $_GET['cvp_guests'] ) : 2;
 
-		$action = $atts['results_page'] ? get_permalink( absint( $atts['results_page'] ) ) : Settings::get_results_page_url();
+		$action          = $atts['results_page'] ? get_permalink( absint( $atts['results_page'] ) ) : Settings::get_results_page_url();
+		$form_id         = wp_unique_id( 'cvp_sb_' );
+		$today           = current_time( 'Y-m-d' );
+		$max_guests_limit = self::get_search_max_guests();
 
 		ob_start();
 		include CVP_PLUGIN_DIR . 'templates/search-bar.php';
@@ -151,6 +154,34 @@ class Shortcodes {
 		ob_start();
 		include CVP_PLUGIN_DIR . 'templates/search-results.php';
 		return ob_get_clean();
+	}
+
+	/**
+	 * Capienza massima per la barra ricerca (max tra tutti gli appartamenti pubblicati).
+	 *
+	 * @return int
+	 */
+	public static function get_search_max_guests() {
+		$apartments = get_posts(
+			array(
+				'post_type'              => Post_Types::APPARTAMENTO,
+				'post_status'            => 'publish',
+				'posts_per_page'         => -1,
+				'fields'                 => 'ids',
+				'no_found_rows'          => true,
+				'update_post_meta_cache' => true,
+			)
+		);
+
+		$max = 2;
+		foreach ( $apartments as $apartment_id ) {
+			$guests = (int) get_post_meta( $apartment_id, Apartment_Meta::MAX_GUESTS, true );
+			if ( $guests > $max ) {
+				$max = $guests;
+			}
+		}
+
+		return $max;
 	}
 
 	/**

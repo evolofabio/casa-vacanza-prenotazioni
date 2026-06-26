@@ -329,13 +329,13 @@ class Availability {
 
 		$start = strtotime( $check_in );
 		$end   = strtotime( $check_out );
-		$today = strtotime( 'today' );
+		$today = current_time( 'Y-m-d' );
 
 		if ( ! $start || ! $end ) {
 			return new \WP_Error( 'invalid_dates', __( 'Date non valide.', 'casa-vacanza-prenotazioni' ) );
 		}
 
-		if ( $start < $today ) {
+		if ( $check_in < $today ) {
 			return new \WP_Error( 'past_date', __( 'Il check-in non può essere nel passato.', 'casa-vacanza-prenotazioni' ) );
 		}
 

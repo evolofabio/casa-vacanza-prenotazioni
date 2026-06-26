@@ -83,10 +83,11 @@ $data = \CVP\Shortcodes::get_apartment_data( $apartment_id );
 				</button>
 			</div>
 
-			<div class="cvp-booking-modal" id="cvp-booking-modal-<?php echo esc_attr( $data['id'] ); ?>" hidden>
-				<div class="cvp-booking-modal__overlay"></div>
+			<div class="cvp-booking-modal" id="cvp-booking-modal-<?php echo esc_attr( $data['id'] ); ?>" role="dialog" aria-modal="true" aria-labelledby="cvp-modal-title-<?php echo esc_attr( $data['id'] ); ?>" hidden>
+				<div class="cvp-booking-modal__overlay" tabindex="-1"></div>
 				<div class="cvp-booking-modal__content">
 					<button type="button" class="cvp-booking-modal__close" aria-label="<?php esc_attr_e( 'Chiudi', 'casa-vacanza-prenotazioni' ); ?>">&times;</button>
+					<h3 id="cvp-modal-title-<?php echo esc_attr( $data['id'] ); ?>" class="screen-reader-text"><?php esc_html_e( 'Richiedi prenotazione', 'casa-vacanza-prenotazioni' ); ?></h3>
 					<?php
 					$apartment_id = $data['id'];
 					include CVP_PLUGIN_DIR . 'templates/booking-form.php';

@@ -15,36 +15,7 @@ class Emails {
 	 * Inizializza hook.
 	 */
 	public static function init() {
-		add_filter( 'wp_mail_from', array( __CLASS__, 'filter_from_email' ) );
-		add_filter( 'wp_mail_from_name', array( __CLASS__, 'filter_from_name' ) );
-	}
-
-	/**
-	 * Email mittente personalizzata.
-	 *
-	 * @param string $email Email corrente.
-	 * @return string
-	 */
-	public static function filter_from_email( $email ) {
-		$settings = Settings::get();
-		if ( ! empty( $settings['from_email'] ) && is_email( $settings['from_email'] ) ) {
-			return $settings['from_email'];
-		}
-		return $email;
-	}
-
-	/**
-	 * Nome mittente personalizzato.
-	 *
-	 * @param string $name Nome corrente.
-	 * @return string
-	 */
-	public static function filter_from_name( $name ) {
-		$settings = Settings::get();
-		if ( ! empty( $settings['from_name'] ) ) {
-			return $settings['from_name'];
-		}
-		return $name;
+		// Nessun filtro globale su wp_mail: il mittente è impostato solo nelle email del plugin.
 	}
 
 	/**
@@ -105,8 +76,15 @@ class Emails {
 	 * @return bool
 	 */
 	public static function send( $to, $subject, $body ) {
-		$headers = array( 'Content-Type: text/html; charset=UTF-8' );
-		return wp_mail( $to, $subject, wpautop( $body ), $headers );
+		$settings = Settings::get();
+		$headers  = array( 'Content-Type: text/plain; charset=UTF-8' );
+
+		if ( ! empty( $settings['from_email'] ) && is_email( $settings['from_email'] ) ) {
+			$from_name = ! empty( $settings['from_name'] ) ? $settings['from_name'] : get_bloginfo( 'name' );
+			$headers[] = sprintf( 'From: %s <%s>', $from_name, $settings['from_email'] );
+		}
+
+		return wp_mail( $to, $subject, $body, $headers );
 	}
 
 	/**

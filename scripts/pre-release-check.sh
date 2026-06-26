@@ -40,7 +40,7 @@ fi
 echo "--- Version alignment ---"
 MAIN_FILE="casa-vacanza-prenotazioni.php"
 HEADER_VERSION=$(grep -E '^\s*\*\s*Version:' "$MAIN_FILE" | head -1 | sed -E 's/.*Version:[[:space:]]*//' | tr -d ' ')
-DEFINE_VERSION=$(grep -E "define\(\s*'CVP_VERSION'" "$MAIN_FILE" | sed -E "s/.*,\s*'([^']+)'\s*\).*/\1/" | head -1)
+DEFINE_VERSION=$(grep -E "define\(\s*'CVP_VERSION'" "$MAIN_FILE" | grep -oE "'[0-9]+\.[0-9]+\.[0-9]+'" | tr -d "'" | tail -1)
 README_VERSION=$(grep -E '^Stable tag:' readme.txt | sed -E 's/Stable tag:[[:space:]]*//')
 
 if [[ "$HEADER_VERSION" != "$DEFINE_VERSION" ]]; then
@@ -102,7 +102,9 @@ echo "--- Required files ---"
 REQUIRED=(
 	"casa-vacanza-prenotazioni.php"
 	"INSTALLAZIONE.txt"
+	"uninstall.php"
 	"includes/class-plugin.php"
+	"includes/class-pricing.php"
 	"includes/class-github-updater.php"
 	"public/css/public.css"
 	"public/js/public.js"
@@ -168,6 +170,18 @@ if grep -q 'fix_install_directory' "$UPDATER" && grep -q 'merge_directory' "$UPD
 	fail "Updater: logica pericolosa fix_install_directory/merge ancora presente"
 fi
 pass "GitHub updater: hook di sicurezza presenti"
+
+if ! grep -q 'class Pricing' includes/class-pricing.php; then
+	fail "Manca classe Pricing unificata"
+else
+	pass "Classe Pricing presente"
+fi
+
+if ! grep -q 'WP_UNINSTALL_PLUGIN' uninstall.php; then
+	fail "uninstall.php non valido"
+else
+	pass "uninstall.php presente"
+fi
 
 echo
 if [[ "$ERRORS" -gt 0 ]]; then

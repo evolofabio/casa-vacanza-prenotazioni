@@ -89,7 +89,7 @@ header( 'Content-Type: text/html; charset=utf-8' );
 				<li>Pulisci il riferimento nel database (pulsante sotto)</li>
 			<?php endif; ?>
 			<li>Vai in <strong>Plugin → Aggiungi nuovo → Carica plugin</strong></li>
-			<li>Carica lo zip dalla <a href="https://github.com/evolofabio/casa-vacanza-prenotazioni/releases/latest" target="_blank" rel="noopener">release GitHub v1.1.3</a> (non estrarre manualmente)</li>
+			<li>Carica lo zip dalla <a href="https://github.com/evolofabio/casa-vacanza-prenotazioni/releases/latest" target="_blank" rel="noopener">ultima release GitHub</a> (non estrarre manualmente)</li>
 			<li>Attiva il plugin</li>
 			<li><strong>Elimina questo file</strong> (<code>cvp-recovery.php</code>) dalla root del sito</li>
 		</ol>

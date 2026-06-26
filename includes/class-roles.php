@@ -27,6 +27,8 @@ class Roles {
 		add_action( 'init', array( __CLASS__, 'maybe_add_caps_to_admin' ), 20 );
 		add_action( 'admin_init', array( __CLASS__, 'maybe_repair_caps' ) );
 		add_filter( 'map_meta_cap', array( __CLASS__, 'map_meta_cap' ), 10, 4 );
+		add_action( 'admin_menu', array( __CLASS__, 'restrict_gestore_menus' ), 999 );
+		add_action( 'admin_init', array( __CLASS__, 'block_gestore_unauthorized_screens' ) );
 	}
 
 	/**
@@ -52,10 +54,8 @@ class Roles {
 			'read'                   => true,
 			'upload_files'           => true,
 			'edit_posts'             => true,
-			'edit_others_posts'      => true,
 			'publish_posts'          => true,
 			'delete_posts'           => true,
-			'delete_others_posts'    => true,
 			'edit_published_posts'   => true,
 			'delete_published_posts' => true,
 			'cvp_view_dashboard'     => true,
@@ -176,6 +176,8 @@ class Roles {
 					$gestore->add_cap( $cap );
 				}
 			}
+			$gestore->remove_cap( 'edit_others_posts' );
+			$gestore->remove_cap( 'delete_others_posts' );
 		}
 
 		self::maybe_add_caps_to_admin();
@@ -222,5 +224,70 @@ class Roles {
 	 */
 	public static function get_apartments_menu_cap() {
 		return 'edit_posts';
+	}
+
+	/**
+	 * Verifica se l'utente corrente è un gestore (non admin).
+	 *
+	 * @return bool
+	 */
+	private static function is_gestore_only() {
+		if ( current_user_can( 'manage_options' ) ) {
+			return false;
+		}
+
+		return current_user_can( 'cvp_view_dashboard' );
+	}
+
+	/**
+	 * Nasconde menu non pertinenti al gestore prenotazioni.
+	 */
+	public static function restrict_gestore_menus() {
+		if ( ! self::is_gestore_only() ) {
+			return;
+		}
+
+		remove_menu_page( 'edit.php' );
+		remove_menu_page( 'edit.php?post_type=page' );
+		remove_menu_page( 'edit-comments.php' );
+		remove_menu_page( 'tools.php' );
+		remove_menu_page( 'themes.php' );
+		remove_menu_page( 'plugins.php' );
+		remove_menu_page( 'users.php' );
+		remove_menu_page( 'options-general.php' );
+	}
+
+	/**
+	 * Impedisce al gestore di creare o modificare contenuti non del plugin.
+	 */
+	public static function block_gestore_unauthorized_screens() {
+		if ( ! self::is_gestore_only() ) {
+			return;
+		}
+
+		global $pagenow;
+
+		$allowed_types = array( Post_Types::APPARTAMENTO, Post_Types::PRENOTAZIONE );
+
+		if ( 'post-new.php' === $pagenow ) {
+			$post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : 'post';
+			if ( ! in_array( $post_type, $allowed_types, true ) ) {
+				wp_die( esc_html__( 'Non hai i permessi per creare questo contenuto.', 'casa-vacanza-prenotazioni' ) );
+			}
+		}
+
+		if ( 'edit.php' === $pagenow ) {
+			$post_type = isset( $_GET['post_type'] ) ? sanitize_key( wp_unslash( $_GET['post_type'] ) ) : 'post';
+			if ( ! in_array( $post_type, $allowed_types, true ) ) {
+				wp_die( esc_html__( 'Non hai i permessi per accedere a questa sezione.', 'casa-vacanza-prenotazioni' ) );
+			}
+		}
+
+		if ( 'post.php' === $pagenow && isset( $_GET['post'] ) ) {
+			$post = get_post( absint( $_GET['post'] ) );
+			if ( $post && ! in_array( $post->post_type, $allowed_types, true ) ) {
+				wp_die( esc_html__( 'Non hai i permessi per modificare questo contenuto.', 'casa-vacanza-prenotazioni' ) );
+			}
+		}
 	}
 }

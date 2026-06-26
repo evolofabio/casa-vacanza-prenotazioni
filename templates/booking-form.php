@@ -26,11 +26,15 @@ $availability = \CVP\Availability::get_frontend_availability( $apartment_id );
 
 	<form class="cvp-booking-form" data-apartment-id="<?php echo esc_attr( $apartment_id ); ?>" data-availability="<?php echo esc_attr( wp_json_encode( $availability ) ); ?>">
 		<input type="hidden" name="apartment_id" value="<?php echo esc_attr( $apartment_id ); ?>" />
+		<div class="cvp-honeypot" aria-hidden="true" hidden>
+			<label for="cvp_website_<?php echo esc_attr( $apartment_id ); ?>"><?php esc_html_e( 'Lascia vuoto', 'casa-vacanza-prenotazioni' ); ?></label>
+			<input type="text" id="cvp_website_<?php echo esc_attr( $apartment_id ); ?>" name="cvp_website" value="" tabindex="-1" autocomplete="off" />
+		</div>
 
 		<div class="cvp-form-row cvp-form-row--2">
 			<div class="cvp-form-field">
 				<label for="cvp_bf_check_in_<?php echo esc_attr( $apartment_id ); ?>"><?php esc_html_e( 'Check-in', 'casa-vacanza-prenotazioni' ); ?></label>
-				<input type="date" id="cvp_bf_check_in_<?php echo esc_attr( $apartment_id ); ?>" name="check_in" value="<?php echo esc_attr( $check_in ); ?>" required min="<?php echo esc_attr( gmdate( 'Y-m-d' ) ); ?>" class="cvp-date-input" />
+				<input type="date" id="cvp_bf_check_in_<?php echo esc_attr( $apartment_id ); ?>" name="check_in" value="<?php echo esc_attr( $check_in ); ?>" required min="<?php echo esc_attr( current_time( 'Y-m-d' ) ); ?>" class="cvp-date-input" />
 			</div>
 			<div class="cvp-form-field">
 				<label for="cvp_bf_check_out_<?php echo esc_attr( $apartment_id ); ?>"><?php esc_html_e( 'Check-out', 'casa-vacanza-prenotazioni' ); ?></label>

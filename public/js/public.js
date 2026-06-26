@@ -1,6 +1,8 @@
 (function ($) {
 	'use strict';
 
+	var lastFocused = null;
+
 	function showMessage($form, message, type) {
 		var $msg = $form.find('.cvp-form-message');
 		$msg.removeAttr('hidden').removeClass('is-success is-error').addClass(type === 'success' ? 'is-success' : 'is-error').text(message);
@@ -64,6 +66,52 @@
 			} else {
 				$summary.attr('hidden', true);
 				showDateFeedback($form, response.data && response.data.message ? response.data.message : cvpPublic.i18n.error, true);
+			}
+		});
+	}
+
+	function getModalFocusable($modal) {
+		return $modal.find('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])').filter(':visible');
+	}
+
+	function closeModal($modal) {
+		$modal.attr('hidden', true).attr('aria-hidden', 'true');
+		$(document).off('keydown.cvpModal');
+		if (lastFocused && typeof lastFocused.focus === 'function') {
+			lastFocused.focus();
+		}
+		lastFocused = null;
+	}
+
+	function openModal($modal) {
+		lastFocused = document.activeElement;
+		$modal.removeAttr('hidden').attr('aria-hidden', 'false');
+		getModalFocusable($modal).first().focus();
+
+		$(document).on('keydown.cvpModal', function (e) {
+			if (e.key === 'Escape') {
+				closeModal($modal);
+				return;
+			}
+
+			if (e.key !== 'Tab') {
+				return;
+			}
+
+			var focusable = getModalFocusable($modal);
+			if (!focusable.length) {
+				return;
+			}
+
+			var first = focusable.first()[0];
+			var last = focusable.last()[0];
+
+			if (e.shiftKey && document.activeElement === first) {
+				e.preventDefault();
+				last.focus();
+			} else if (!e.shiftKey && document.activeElement === last) {
+				e.preventDefault();
+				first.focus();
 			}
 		});
 	}
@@ -133,11 +181,11 @@
 			$modal.find('[name="guests"]').val(guests);
 		}
 
-		$modal.removeAttr('hidden');
+		openModal($modal);
 		updatePrice($modal.find('.cvp-booking-form'));
 	});
 
 	$(document).on('click', '.cvp-booking-modal__close, .cvp-booking-modal__overlay', function () {
-		$(this).closest('.cvp-booking-modal').attr('hidden', true);
+		closeModal($(this).closest('.cvp-booking-modal'));
 	});
 })(jQuery);

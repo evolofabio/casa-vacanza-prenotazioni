@@ -453,3 +453,34 @@
 	margin: 0 0 12px;
 	font-size: 1.25rem;
 }
+
+.cvp-honeypot {
+	position: absolute;
+	left: -9999px;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+}
+
+.cvp-btn:focus-visible,
+.cvp-booking-form input:focus-visible,
+.cvp-booking-form textarea:focus-visible,
+.cvp-booking-form select:focus-visible,
+.cvp-search-bar input:focus-visible,
+.cvp-booking-modal__close:focus-visible {
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
+}
+
+.screen-reader-text {
+	border: 0;
+	clip: rect(1px, 1px, 1px, 1px);
+	clip-path: inset(50%);
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	width: 1px;
+	word-wrap: normal !important;
+}

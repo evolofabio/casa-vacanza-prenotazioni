@@ -39,7 +39,7 @@ class Apartment_Meta {
 	 */
 	public static function register_meta() {
 		$auth = static function () {
-			return current_user_can( 'edit_posts' );
+			return current_user_can( 'cvp_manage_apartments' ) || current_user_can( 'manage_options' );
 		};
 
 		register_post_meta(

@@ -456,9 +456,11 @@ class Meta_Boxes {
 
 		Apartment_Meta::save_from_request( $post_id );
 
+		$blocks = array();
 		if ( isset( $_POST['cvp_manual_blocks'] ) && is_array( $_POST['cvp_manual_blocks'] ) ) {
-			Apartment_Meta::save_manual_blocks( $post_id, wp_unslash( $_POST['cvp_manual_blocks'] ) );
+			$blocks = wp_unslash( $_POST['cvp_manual_blocks'] );
 		}
+		Apartment_Meta::save_manual_blocks( $post_id, $blocks );
 	}
 
 	/**
@@ -516,6 +518,11 @@ class Meta_Boxes {
 
 		foreach ( $fields as $key => $value ) {
 			update_post_meta( $post_id, $key, $value );
+		}
+
+		if ( $apartment_id && $check_in && $check_out ) {
+			$pricing = Pricing::calculate( $apartment_id, $check_in, $check_out );
+			update_post_meta( $post_id, '_cvp_total_price', $pricing['total'] );
 		}
 
 		if ( $old_status !== $new_status ) {

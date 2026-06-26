@@ -24,6 +24,24 @@ class Apartment_Document {
 	}
 
 	/**
+	 * Risolve l'ID appartamento dal documento Elementor.
+	 *
+	 * @param \WP_Post|null $post Post del documento.
+	 * @return int
+	 */
+	private static function resolve_apartment_id( $post ) {
+		if ( ! $post ) {
+			return 0;
+		}
+
+		if ( Post_Types::APPARTAMENTO === $post->post_type ) {
+			return (int) $post->ID;
+		}
+
+		return Apartment_Meta::get_apartment_id_by_page( $post->ID );
+	}
+
+	/**
 	 * Registra controlli nel pannello Impostazioni pagina.
 	 *
 	 * @param \Elementor\Core\Base\Document $document Documento Elementor.
@@ -34,13 +52,15 @@ class Apartment_Document {
 		}
 
 		$post = $document->get_main_post();
-		if ( ! $post || Post_Types::APPARTAMENTO !== $post->post_type ) {
+		$apartment_id = self::resolve_apartment_id( $post );
+		if ( ! $apartment_id ) {
 			return;
 		}
 
-		$meta           = Apartment_Meta::get_all( $post->ID );
-		$linkable_pages = Apartment_Meta::get_linkable_pages( $post->ID );
-		$page_options   = array( '0' => __( '— Nessuna —', 'casa-vacanza-prenotazioni' ) );
+		$is_cpt       = $post && Post_Types::APPARTAMENTO === $post->post_type;
+		$meta         = Apartment_Meta::get_all( $apartment_id );
+		$linkable_pages = Apartment_Meta::get_linkable_pages( $apartment_id );
+		$page_options = array( '0' => __( '— Nessuna —', 'casa-vacanza-prenotazioni' ) );
 		foreach ( $linkable_pages as $page ) {
 			$page_options[ (string) $page->ID ] = $page->post_title;
 		}
@@ -53,15 +73,32 @@ class Apartment_Document {
 			)
 		);
 
-		$document->add_control(
-			'cvp_linked_page_id',
-			array(
-				'label'   => __( 'Pagina collegata', 'casa-vacanza-prenotazioni' ),
-				'type'    => Controls_Manager::SELECT,
-				'options' => $page_options,
-				'default' => (string) $meta['linked_page'],
-			)
-		);
+		if ( ! $is_cpt ) {
+			$document->add_control(
+				'cvp_linked_page_info',
+				array(
+					'type'            => Controls_Manager::RAW_HTML,
+					'raw'             => sprintf(
+						/* translators: %s: apartment title */
+						__( 'Stai modificando i dati dell\'appartamento <strong>%s</strong> collegato a questa pagina.', 'casa-vacanza-prenotazioni' ),
+						esc_html( get_the_title( $apartment_id ) )
+					),
+					'content_classes' => 'elementor-panel-alert elementor-panel-alert-info',
+				)
+			);
+		}
+
+		if ( $is_cpt ) {
+			$document->add_control(
+				'cvp_linked_page_id',
+				array(
+					'label'   => __( 'Pagina collegata', 'casa-vacanza-prenotazioni' ),
+					'type'    => Controls_Manager::SELECT,
+					'options' => $page_options,
+					'default' => (string) $meta['linked_page'],
+				)
+			);
+		}
 
 		$document->add_control(
 			'cvp_beds',
@@ -169,7 +206,7 @@ class Apartment_Document {
 			array(
 				'label'       => __( 'Servizi (uno per riga)', 'casa-vacanza-prenotazioni' ),
 				'type'        => Controls_Manager::TEXTAREA,
-				'default'     => Apartment_Meta::get_services_text( $post->ID ),
+				'default'     => Apartment_Meta::get_services_text( $apartment_id ),
 				'rows'        => 6,
 				'description' => __( 'Es: Wi-Fi, Parcheggio, Aria condizionata', 'casa-vacanza-prenotazioni' ),
 			)
@@ -180,7 +217,7 @@ class Apartment_Document {
 			array(
 				'label'   => __( 'Galleria immagini', 'casa-vacanza-prenotazioni' ),
 				'type'    => Controls_Manager::GALLERY,
-				'default' => Apartment_Meta::get_gallery_for_elementor( $post->ID ),
+				'default' => Apartment_Meta::get_gallery_for_elementor( $apartment_id ),
 			)
 		);
 
@@ -199,7 +236,8 @@ class Apartment_Document {
 		}
 
 		$post = $document->get_main_post();
-		if ( ! $post || Post_Types::APPARTAMENTO !== $post->post_type ) {
+		$apartment_id = self::resolve_apartment_id( $post );
+		if ( ! $apartment_id ) {
 			return;
 		}
 
@@ -208,6 +246,6 @@ class Apartment_Document {
 			return;
 		}
 
-		Apartment_Meta::save_from_array( $post->ID, $settings );
+		Apartment_Meta::save_from_array( $apartment_id, $settings );
 	}
 }

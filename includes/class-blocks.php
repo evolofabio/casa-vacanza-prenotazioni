@@ -12,85 +12,111 @@ defined( 'ABSPATH' ) || exit;
 class Blocks {
 
 	/**
+	 * Slug blocchi registrati.
+	 *
+	 * @var string[]
+	 */
+	private static $block_slugs = array(
+		'search-bar',
+		'apartment-card',
+		'booking-form',
+		'search-results',
+	);
+
+	/**
 	 * Inizializza hook.
 	 */
 	public static function init() {
 		add_action( 'init', array( __CLASS__, 'register_blocks' ) );
+		add_action( 'enqueue_block_editor_assets', array( __CLASS__, 'enqueue_editor_assets' ) );
 	}
 
 	/**
-	 * Registra blocchi solo lato server (evita conflitti editor).
+	 * Registra blocchi server-side con editor script da block.json.
 	 */
 	public static function register_blocks() {
 		if ( ! function_exists( 'register_block_type' ) ) {
 			return;
 		}
 
-		$blocks = array(
-			'search-bar'     => array(
-				'callback'   => array( __CLASS__, 'render_search_bar_block' ),
-				'attributes' => array(
-					'resultsPage' => array( 'type' => 'number', 'default' => 0 ),
-				),
-			),
-			'apartment-card' => array(
-				'callback'   => array( __CLASS__, 'render_apartment_card_block' ),
-				'attributes' => array(
-					'apartmentId' => array( 'type' => 'number', 'default' => 0 ),
-					'showBooking' => array( 'type' => 'boolean', 'default' => true ),
-				),
-			),
-			'booking-form'   => array(
-				'callback'   => array( __CLASS__, 'render_booking_form_block' ),
-				'attributes' => array(
-					'apartmentId' => array( 'type' => 'number', 'default' => 0 ),
-				),
-			),
-			'search-results' => array(
-				'callback'   => array( Shortcodes::class, 'search_results' ),
-				'attributes' => array(),
-			),
+		$callbacks = array(
+			'search-bar'     => array( __CLASS__, 'render_search_bar_block' ),
+			'apartment-card' => array( __CLASS__, 'render_apartment_card_block' ),
+			'booking-form'   => array( __CLASS__, 'render_booking_form_block' ),
+			'search-results' => array( Shortcodes::class, 'search_results' ),
 		);
 
-		foreach ( $blocks as $slug => $config ) {
-			$metadata = self::get_block_metadata( $slug );
-			if ( empty( $metadata ) ) {
+		foreach ( self::$block_slugs as $slug ) {
+			$dir = CVP_PLUGIN_DIR . 'blocks/' . $slug;
+			if ( ! file_exists( $dir . '/block.json' ) ) {
 				continue;
 			}
 
 			register_block_type(
-				'cvp/' . $slug,
-				array_merge(
-					$metadata,
-					array(
-						'attributes'      => $config['attributes'],
-						'render_callback' => $config['callback'],
-					)
+				$dir,
+				array(
+					'render_callback' => isset( $callbacks[ $slug ] ) ? $callbacks[ $slug ] : null,
 				)
 			);
 		}
 	}
 
 	/**
-	 * Metadati blocchi da block.json (senza editorScript).
-	 *
-	 * @param string $slug Slug blocco.
-	 * @return array
+	 * Dati condivisi per gli script editor dei blocchi.
 	 */
-	private static function get_block_metadata( $slug ) {
-		$file = CVP_PLUGIN_DIR . 'blocks/' . $slug . '/block.json';
-		if ( ! file_exists( $file ) ) {
-			return array();
+	public static function enqueue_editor_assets() {
+		$pages = get_posts(
+			array(
+				'post_type'              => 'page',
+				'post_status'            => 'publish',
+				'posts_per_page'         => 100,
+				'orderby'                => 'title',
+				'order'                  => 'ASC',
+				'no_found_rows'          => true,
+				'update_post_meta_cache' => false,
+			)
+		);
+
+		$apartments = get_posts(
+			array(
+				'post_type'              => Post_Types::APPARTAMENTO,
+				'post_status'            => 'publish',
+				'posts_per_page'         => 100,
+				'orderby'                => 'title',
+				'order'                  => 'ASC',
+				'no_found_rows'          => true,
+				'update_post_meta_cache' => false,
+			)
+		);
+
+		$page_items = array();
+		foreach ( $pages as $page ) {
+			$page_items[] = array(
+				'id'    => $page->ID,
+				'title' => $page->post_title,
+			);
 		}
 
-		$metadata = json_decode( file_get_contents( $file ), true );
-		if ( ! is_array( $metadata ) ) {
-			return array();
+		$apartment_items = array();
+		foreach ( $apartments as $apartment ) {
+			$apartment_items[] = array(
+				'id'    => $apartment->ID,
+				'title' => $apartment->post_title,
+			);
 		}
 
-		unset( $metadata['editorScript'], $metadata['$schema'] );
-
-		return $metadata;
+		wp_register_script( 'cvp-blocks-data', false, array(), CVP_VERSION, true );
+		wp_enqueue_script( 'cvp-blocks-data' );
+		wp_add_inline_script(
+			'cvp-blocks-data',
+			'window.cvpBlockData = ' . wp_json_encode(
+				array(
+					'pages'      => $page_items,
+					'apartments' => $apartment_items,
+				)
+			) . ';',
+			'before'
+		);
 	}
 
 	/**

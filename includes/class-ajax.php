@@ -31,22 +31,23 @@ class Ajax {
 		$check_in     = isset( $_POST['check_in'] ) ? sanitize_text_field( wp_unslash( $_POST['check_in'] ) ) : '';
 		$check_out    = isset( $_POST['check_out'] ) ? sanitize_text_field( wp_unslash( $_POST['check_out'] ) ) : '';
 
+		if ( ! Pricing::is_valid_apartment( $apartment_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Appartamento non valido.', 'casa-vacanza-prenotazioni' ) ) );
+		}
+
 		$validation = Availability::validate_dates( $check_in, $check_out, $apartment_id );
 		if ( is_wp_error( $validation ) ) {
 			wp_send_json_error( array( 'message' => $validation->get_error_message() ) );
 		}
 
-		$nights      = Availability::count_nights( $check_in, $check_out );
-		$price_night = (float) get_post_meta( $apartment_id, Apartment_Meta::PRICE, true );
-		$cleaning    = (float) get_post_meta( $apartment_id, Apartment_Meta::CLEANING_FEE, true );
-		$total       = ( $nights * $price_night ) + $cleaning;
+		$pricing = Pricing::calculate( $apartment_id, $check_in, $check_out );
 
 		wp_send_json_success(
 			array(
-				'nights'      => $nights,
-				'price_night' => Settings::format_price( $price_night ),
-				'total'       => Settings::format_price( $total ),
-				'total_raw'   => $total,
+				'nights'      => $pricing['nights'],
+				'price_night' => Settings::format_price( $pricing['price_night'] ),
+				'total'       => Settings::format_price( $pricing['total'] ),
+				'total_raw'   => $pricing['total'],
 			)
 		);
 	}
@@ -61,9 +62,17 @@ class Ajax {
 		$check_in     = isset( $_POST['check_in'] ) ? sanitize_text_field( wp_unslash( $_POST['check_in'] ) ) : '';
 		$check_out    = isset( $_POST['check_out'] ) ? sanitize_text_field( wp_unslash( $_POST['check_out'] ) ) : '';
 
+		if ( ! Pricing::is_valid_apartment( $apartment_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Appartamento non valido.', 'casa-vacanza-prenotazioni' ) ) );
+		}
+
 		$validation = Availability::validate_dates( $check_in, $check_out, $apartment_id );
 		if ( is_wp_error( $validation ) ) {
 			wp_send_json_error( array( 'message' => $validation->get_error_message() ) );
+		}
+
+		if ( ! Availability::is_available( $apartment_id, $check_in, $check_out ) ) {
+			wp_send_json_error( array( 'message' => __( 'Le date selezionate non sono disponibili.', 'casa-vacanza-prenotazioni' ) ) );
 		}
 
 		wp_send_json_success( array( 'message' => __( 'Date disponibili.', 'casa-vacanza-prenotazioni' ) ) );

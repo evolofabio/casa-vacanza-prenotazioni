@@ -12,12 +12,59 @@ defined( 'ABSPATH' ) || exit;
 class Booking {
 
 	/**
+	 * Limite richieste AJAX per IP in 15 minuti.
+	 */
+	const RATE_LIMIT_MAX = 10;
+
+	/**
 	 * Inizializza hook.
 	 */
 	public static function init() {
 		add_action( 'wp_ajax_cvp_submit_booking', array( __CLASS__, 'ajax_submit_booking' ) );
 		add_action( 'wp_ajax_nopriv_cvp_submit_booking', array( __CLASS__, 'ajax_submit_booking' ) );
 		add_action( 'wp_ajax_cvp_update_booking_status', array( __CLASS__, 'ajax_update_status' ) );
+	}
+
+	/**
+	 * Verifica che il post sia una prenotazione del plugin.
+	 *
+	 * @param int $post_id ID post.
+	 * @return bool
+	 */
+	public static function is_booking( $post_id ) {
+		$post_id = absint( $post_id );
+		if ( ! $post_id ) {
+			return false;
+		}
+
+		$post = get_post( $post_id );
+		return $post && Post_Types::PRENOTAZIONE === $post->post_type;
+	}
+
+	/**
+	 * Controlla rate limiting per IP.
+	 *
+	 * @return true|\WP_Error
+	 */
+	private static function check_rate_limit() {
+		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+		if ( ! $ip ) {
+			return true;
+		}
+
+		$key   = 'cvp_rl_' . md5( $ip );
+		$count = (int) get_transient( $key );
+
+		if ( $count >= self::RATE_LIMIT_MAX ) {
+			return new \WP_Error(
+				'rate_limit',
+				__( 'Troppe richieste. Riprova tra qualche minuto.', 'casa-vacanza-prenotazioni' )
+			);
+		}
+
+		set_transient( $key, $count + 1, 15 * MINUTE_IN_SECONDS );
+
+		return true;
 	}
 
 	/**
@@ -36,7 +83,7 @@ class Booking {
 		$phone        = isset( $data['customer_phone'] ) ? sanitize_text_field( $data['customer_phone'] ) : '';
 		$note         = isset( $data['customer_note'] ) ? sanitize_textarea_field( $data['customer_note'] ) : '';
 
-		if ( ! $apartment_id || ! get_post( $apartment_id ) ) {
+		if ( ! Pricing::is_valid_apartment( $apartment_id ) ) {
 			return new \WP_Error( 'invalid_apartment', __( 'Appartamento non valido.', 'casa-vacanza-prenotazioni' ) );
 		}
 
@@ -45,7 +92,7 @@ class Booking {
 			return $date_validation;
 		}
 
-		$max_guests = (int) get_post_meta( $apartment_id, '_cvp_max_guests', true );
+		$max_guests = (int) get_post_meta( $apartment_id, Apartment_Meta::MAX_GUESTS, true );
 		if ( $max_guests > 0 && $guests > $max_guests ) {
 			return new \WP_Error(
 				'too_many_guests',
@@ -65,9 +112,7 @@ class Booking {
 			return new \WP_Error( 'not_available', __( 'Le date selezionate non sono più disponibili.', 'casa-vacanza-prenotazioni' ) );
 		}
 
-		$nights      = Availability::count_nights( $check_in, $check_out );
-		$price_night = (float) get_post_meta( $apartment_id, '_cvp_price', true );
-		$total       = $nights * $price_night;
+		$pricing = Pricing::calculate( $apartment_id, $check_in, $check_out );
 
 		$title = sprintf(
 			/* translators: 1: customer name, 2: apartment title */
@@ -89,6 +134,12 @@ class Booking {
 			return $booking_id;
 		}
 
+		// Ricontrollo dopo insert per evitare race condition su prenotazioni concorrenti.
+		if ( ! Availability::is_available( $apartment_id, $check_in, $check_out, $booking_id ) ) {
+			wp_delete_post( $booking_id, true );
+			return new \WP_Error( 'not_available', __( 'Le date selezionate non sono più disponibili.', 'casa-vacanza-prenotazioni' ) );
+		}
+
 		update_post_meta( $booking_id, '_cvp_status', Post_Types::STATUS_IN_ATTESA );
 		update_post_meta( $booking_id, '_cvp_apartment_id', $apartment_id );
 		update_post_meta( $booking_id, '_cvp_check_in', $check_in );
@@ -98,7 +149,7 @@ class Booking {
 		update_post_meta( $booking_id, '_cvp_customer_email', $email );
 		update_post_meta( $booking_id, '_cvp_customer_phone', $phone );
 		update_post_meta( $booking_id, '_cvp_customer_note', $note );
-		update_post_meta( $booking_id, '_cvp_total_price', $total );
+		update_post_meta( $booking_id, '_cvp_total_price', $pricing['total'] );
 
 		Emails::send_customer_request_received( $booking_id );
 		Emails::send_operator_new_request( $booking_id );
@@ -115,6 +166,10 @@ class Booking {
 	 * @return true|\WP_Error
 	 */
 	public static function update_status( $booking_id, $new_status, $note = '' ) {
+		if ( ! self::is_booking( $booking_id ) ) {
+			return new \WP_Error( 'invalid_booking', __( 'Prenotazione non valida.', 'casa-vacanza-prenotazioni' ) );
+		}
+
 		$labels = Post_Types::get_status_labels();
 
 		if ( ! isset( $labels[ $new_status ] ) ) {
@@ -175,6 +230,20 @@ class Booking {
 	public static function ajax_submit_booking() {
 		check_ajax_referer( 'cvp_frontend', 'nonce' );
 
+		// Honeypot anti-spam: campo nascosto che i bot compilano.
+		if ( ! empty( $_POST['cvp_website'] ) ) {
+			wp_send_json_success(
+				array(
+					'message' => __( 'Richiesta inviata con successo! Riceverai una email di conferma.', 'casa-vacanza-prenotazioni' ),
+				)
+			);
+		}
+
+		$rate_check = self::check_rate_limit();
+		if ( is_wp_error( $rate_check ) ) {
+			wp_send_json_error( array( 'message' => $rate_check->get_error_message() ) );
+		}
+
 		$result = self::create( $_POST );
 
 		if ( is_wp_error( $result ) ) {
@@ -202,6 +271,10 @@ class Booking {
 		$booking_id = isset( $_POST['booking_id'] ) ? absint( $_POST['booking_id'] ) : 0;
 		$status     = isset( $_POST['status'] ) ? sanitize_text_field( wp_unslash( $_POST['status'] ) ) : '';
 		$note       = isset( $_POST['note'] ) ? sanitize_textarea_field( wp_unslash( $_POST['note'] ) ) : '';
+
+		if ( ! self::is_booking( $booking_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'Prenotazione non valida.', 'casa-vacanza-prenotazioni' ) ) );
+		}
 
 		$result = self::update_status( $booking_id, $status, $note );
 
@@ -244,7 +317,7 @@ class Booking {
 	 * @return array
 	 */
 	public static function get_upcoming_confirmed( $limit = 5 ) {
-		$today = gmdate( 'Y-m-d' );
+		$today = current_time( 'Y-m-d' );
 
 		return get_posts(
 			array(
