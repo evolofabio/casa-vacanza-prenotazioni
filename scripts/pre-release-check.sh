@@ -152,6 +152,18 @@ for hook in upgrader_source_selection verify_install fix_source_selection; do
 		fail "Updater: manca $hook"
 	fi
 done
+if ! grep -q 'cvp_is_install_complete' "$MAIN_FILE"; then
+	fail "Manca controllo installazione incompleta nel file principale"
+else
+	pass "Bootstrap sicuro presente"
+fi
+
+if ! grep -q "class_exists.*Elementor" includes/class-elementor-integration.php; then
+	fail "Integrazione Elementor senza controlli class_exists"
+else
+	pass "Integrazione Elementor difensiva"
+fi
+
 if grep -q 'fix_install_directory' "$UPDATER" && grep -q 'merge_directory' "$UPDATER"; then
 	fail "Updater: logica pericolosa fix_install_directory/merge ancora presente"
 fi

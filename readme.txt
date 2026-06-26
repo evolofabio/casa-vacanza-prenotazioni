@@ -4,7 +4,7 @@ Tags: prenotazioni, booking, vacation rental, casa vacanza, elementor
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.1.4
+Stable tag: 1.1.5
 License: GPLv2 or later
 
 Sistema completo di prenotazioni per case vacanza.
@@ -53,6 +53,12 @@ Cerca "Casa Vacanza" nell'inserter blocchi:
 Widget disponibili nella categoria **Casa Vacanza**.
 
 == Changelog ==
+
+= 1.1.5 =
+* Bootstrap sicuro: installazione incompleta non manda più il sito in white screen
+* Elementor caricato solo se le classi API sono disponibili (niente fatal error)
+* Pulizia automatica copie duplicate nel database in attivazione
+* Disattivazione automatica se i file del plugin sono corrotti/mancanti
 
 = 1.1.4 =
 * Aggiunto INSTALLAZIONE.txt con istruzioni installazione corrette

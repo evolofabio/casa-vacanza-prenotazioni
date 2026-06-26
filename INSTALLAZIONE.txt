@@ -1,23 +1,33 @@
 === Installazione Casa Vacanza Prenotazioni ===
 
-METODO CONSIGLIATO (WordPress)
-1. Plugin → Aggiungi nuovo → Carica plugin
-2. Scegli il file casa-vacanza-prenotazioni.zip dalla release GitHub
-3. Installa ora → Attiva plugin
+IMPORTANTE — LEGGERE PRIMA DI INSTALLARE
+Se il sito va in errore dopo ogni aggiornamento, segui ESATTAMENTE questa procedura.
 
-NON estrarre lo zip manualmente nel file manager: crea spesso cartelle sbagliate.
+PROCEDURA SICURA (consigliata)
+1. Vai in Plugin e DISATTIVA "Casa Vacanza Prenotazioni" (se visibile)
+2. Nel file manager elimina TUTTE le cartelle che iniziano con:
+   casa-vacanza-prenotazioni
+   (es. casa-vacanza-prenotazioni, casa-vacanza-prenotazioni-main, casa-vacanza-prenotazioni-old)
+3. In WordPress: Plugin → Aggiungi nuovo → Carica plugin
+4. Carica il file zip dalla release GitHub (NON estrarre manualmente lo zip)
+5. Installa ora → Attiva
+
+METODO CONSIGLIATO
+- Usa sempre lo zip dalla pagina Releases: tag v1.1.5 o superiore
+- NON scaricare il branch "main" come zip da GitHub
+- NON usare Plugin → Aggiorna finché non hai una sola cartella pulita
 
 STRUTTURA CORRETTA SUL SERVER
 wp-content/plugins/casa-vacanza-prenotazioni/casa-vacanza-prenotazioni.php
 
 ERRORE "Il file del plugin non esiste"
-- Il database punta ancora a un percorso eliminato
-- Elimina tutte le cartelle casa-vacanza-prenotazioni* in wp-content/plugins/
-- Reinstalla lo zip da Plugin → Carica plugin
-- Oppure usa tools/cvp-recovery.php dalla root del sito (vedi repository GitHub)
+- Il database punta a un percorso eliminato
+- Elimina le cartelle duplicate e reinstalla lo zip
+- Oppure usa tools/cvp-recovery.php nella root WordPress (vedi repository GitHub)
 
-AGGIORNAMENTI
-- Usa sempre lo zip dalla pagina Releases GitHub (tag v*)
-- Non usare Plugin → Aggiorna se hai più copie del plugin nelle cartelle
+SE IL SITO È IN ERRORE (white screen)
+1. Rinomina wp-content/plugins/casa-vacanza-prenotazioni in casa-vacanza-prenotazioni-OFF
+2. Il sito tornerà online
+3. Reinstalla seguendo la procedura sicura sopra
 
 Release: https://github.com/evolofabio/casa-vacanza-prenotazioni/releases

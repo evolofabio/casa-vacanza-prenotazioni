@@ -15,18 +15,41 @@ class Elementor_Integration {
 	 * Inizializza integrazione Elementor.
 	 */
 	public static function init() {
+		if ( ! class_exists( '\Elementor\Plugin' ) ) {
+			return;
+		}
+
 		add_action( 'elementor/widgets/register', array( __CLASS__, 'register_widgets' ) );
 		add_action( 'elementor/elements/categories_registered', array( __CLASS__, 'register_category' ) );
 		add_action( 'admin_init', array( __CLASS__, 'ensure_cpt_support' ) );
+		add_action( 'elementor/frontend/before_register_styles', array( __CLASS__, 'register_frontend_assets' ) );
+
+		self::load_document_integration();
+		self::load_dynamic_tags();
+	}
+
+	/**
+	 * Pannello documento appartamento (solo se Elementor è pronto).
+	 */
+	private static function load_document_integration() {
+		if ( ! class_exists( '\Elementor\Controls_Manager' ) ) {
+			return;
+		}
 
 		require_once CVP_PLUGIN_DIR . 'elementor/class-elementor-apartment-document.php';
-		require_once CVP_PLUGIN_DIR . 'elementor/class-cvp-widget-base.php';
-		require_once CVP_PLUGIN_DIR . 'elementor/dynamic-tags/class-dynamic-tags.php';
-
 		Elementor\Apartment_Document::init();
-		Elementor\DynamicTags\Dynamic_Tags::init();
+	}
 
-		add_action( 'elementor/frontend/before_register_styles', array( __CLASS__, 'register_frontend_assets' ) );
+	/**
+	 * Dynamic tag (solo se API Elementor disponibile).
+	 */
+	private static function load_dynamic_tags() {
+		if ( ! class_exists( '\Elementor\Core\DynamicTags\Tag' ) ) {
+			return;
+		}
+
+		require_once CVP_PLUGIN_DIR . 'elementor/dynamic-tags/class-dynamic-tags.php';
+		Elementor\DynamicTags\Dynamic_Tags::init();
 	}
 
 	/**
@@ -74,6 +97,16 @@ class Elementor_Integration {
 	 * @param \Elementor\Widgets_Manager $widgets_manager Manager widget.
 	 */
 	public static function register_widgets( $widgets_manager ) {
+		if ( ! class_exists( '\Elementor\Widget_Base' ) ) {
+			return;
+		}
+
+		require_once CVP_PLUGIN_DIR . 'elementor/class-cvp-widget-base.php';
+
+		if ( ! class_exists( '\CVP\Elementor\Widgets\Cvp_Widget_Base' ) ) {
+			return;
+		}
+
 		require_once CVP_PLUGIN_DIR . 'elementor/widgets/class-search-bar-widget.php';
 		require_once CVP_PLUGIN_DIR . 'elementor/widgets/class-search-results-widget.php';
 		require_once CVP_PLUGIN_DIR . 'elementor/widgets/class-apartment-card-widget.php';
