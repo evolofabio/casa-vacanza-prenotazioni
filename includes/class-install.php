@@ -142,6 +142,7 @@ class Install {
 
 		self::register_autoloader();
 		self::cleanup_duplicate_entries();
+		GitHub_Updater::maybe_migrate_install_directory();
 
 		Roles::create_role();
 		Post_Types::register();

@@ -29,6 +29,7 @@ class GitHub_Updater {
 		add_filter( 'upgrader_source_selection', array( __CLASS__, 'fix_source_selection' ), 10, 4 );
 		add_filter( 'upgrader_post_install', array( __CLASS__, 'verify_install' ), 10, 3 );
 		add_filter( 'upgrader_package_options', array( __CLASS__, 'package_options' ) );
+		add_filter( 'http_request_args', array( __CLASS__, 'github_download_args' ), 10, 2 );
 		add_action( 'admin_init', array( __CLASS__, 'handle_force_check' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'git_update_admin_notice' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'duplicate_install_notice' ) );
@@ -56,18 +57,61 @@ class GitHub_Updater {
 	}
 
 	/**
+	 * Verifica se il basename plugin appartiene a questo plugin.
+	 *
+	 * @param string $plugin_basename Basename plugin.
+	 * @return bool
+	 */
+	public static function is_our_plugin_basename( $plugin_basename ) {
+		return is_string( $plugin_basename ) && false !== strpos( $plugin_basename, self::PLUGIN_MAIN );
+	}
+
+	/**
+	 * Timeout e header per download zip da GitHub.
+	 *
+	 * @param array  $args Argomenti richiesta HTTP.
+	 * @param string $url  URL richiesto.
+	 * @return array
+	 */
+	public static function github_download_args( $args, $url ) {
+		if ( ! is_string( $url ) ) {
+			return $args;
+		}
+
+		if (
+			false === stripos( $url, 'github.com/' . self::GITHUB_OWNER . '/' . self::GITHUB_REPO )
+			&& false === stripos( $url, 'githubusercontent.com' )
+		) {
+			return $args;
+		}
+
+		$args['timeout']     = max( 60, (int) ( $args['timeout'] ?? 5 ) );
+		$args['redirection'] = max( 5, (int) ( $args['redirection'] ?? 5 ) );
+
+		if ( ! isset( $args['headers'] ) || ! is_array( $args['headers'] ) ) {
+			$args['headers'] = array();
+		}
+
+		$args['headers']['Accept']     = 'application/octet-stream';
+		$args['headers']['User-Agent'] = 'Casa-Vacanza-Prenotazioni-WordPress/' . CVP_VERSION;
+
+		return $args;
+	}
+
+	/**
 	 * Opzioni installazione: evita abort se la cartella di destinazione non è vuota.
 	 *
 	 * @param array $options Opzioni upgrader.
 	 * @return array
 	 */
 	public static function package_options( $options ) {
-		if ( empty( $options['hook_extra']['plugin'] ) || self::get_plugin_slug() !== $options['hook_extra']['plugin'] ) {
+		if ( empty( $options['hook_extra']['plugin'] ) || ! self::is_our_plugin_basename( $options['hook_extra']['plugin'] ) ) {
 			return $options;
 		}
 
-		$options['clear_destination'] = true;
+		$options['clear_destination']           = true;
 		$options['abort_if_destination_exists'] = false;
+		$options['clear_working']               = true;
 
 		return $options;
 	}
@@ -187,8 +231,8 @@ class GitHub_Updater {
 
 		$package = self::pick_release_zip( $data['assets'] ?? array() );
 
-		if ( ! $package && ! empty( $data['zipball_url'] ) ) {
-			$package = $data['zipball_url'];
+		if ( ! $package ) {
+			return null;
 		}
 
 		return array(
@@ -276,7 +320,7 @@ class GitHub_Updater {
 	}
 
 	public static function inject_update( $transient ) {
-		if ( ! is_object( $transient ) || self::is_git_install() ) {
+		if ( ! is_object( $transient ) ) {
 			return $transient;
 		}
 
@@ -291,7 +335,7 @@ class GitHub_Updater {
 
 		$slug = self::get_plugin_slug();
 		$transient->response[ $slug ] = (object) array(
-			'slug'        => self::get_plugin_folder(),
+			'slug'        => self::STANDARD_FOLDER,
 			'plugin'      => $slug,
 			'new_version' => $remote['version'],
 			'url'         => $remote['url'],
@@ -310,18 +354,11 @@ class GitHub_Updater {
 	 * @return bool|WP_Error
 	 */
 	public static function block_git_install_upgrade( $response, $hook_extra ) {
-		if ( empty( $hook_extra['plugin'] ) || self::get_plugin_slug() !== $hook_extra['plugin'] ) {
+		if ( empty( $hook_extra['plugin'] ) || ! self::is_our_plugin_basename( $hook_extra['plugin'] ) ) {
 			return $response;
 		}
 
-		if ( ! self::is_git_install() ) {
-			return $response;
-		}
-
-		return new \WP_Error(
-			'cvp_git_install',
-			__( 'Questo plugin è installato via Git. Non usare "Aggiorna" da WordPress: esegui git pull nella cartella del plugin.', 'casa-vacanza-prenotazioni' )
-		);
+		return $response;
 	}
 
 	public static function git_update_admin_notice() {
@@ -339,10 +376,10 @@ class GitHub_Updater {
 			return;
 		}
 
-		echo '<div class="notice notice-warning"><p>';
+		echo '<div class="notice notice-info"><p>';
 		printf(
 			/* translators: 1: current version, 2: latest version */
-			esc_html__( 'Casa Vacanza Prenotazioni: disponibile la versione %2$s (installata %1$s). Installazione Git rilevata: aggiorna con git pull, non da Plugin → Aggiorna.', 'casa-vacanza-prenotazioni' ),
+			esc_html__( 'Casa Vacanza Prenotazioni: disponibile la versione %2$s (installata %1$s). Puoi aggiornare da Plugin → Aggiorna oppure con git pull nella cartella del plugin.', 'casa-vacanza-prenotazioni' ),
 			esc_html( CVP_VERSION ),
 			esc_html( $remote['version'] )
 		);
@@ -350,7 +387,11 @@ class GitHub_Updater {
 	}
 
 	public static function plugin_info( $result, $action, $args ) {
-		if ( 'plugin_information' !== $action || empty( $args->slug ) || self::get_plugin_folder() !== $args->slug ) {
+		if ( 'plugin_information' !== $action || empty( $args->slug ) ) {
+			return $result;
+		}
+
+		if ( self::STANDARD_FOLDER !== $args->slug && self::get_plugin_folder() !== $args->slug ) {
 			return $result;
 		}
 
@@ -520,14 +561,75 @@ class GitHub_Updater {
 		}
 
 		$active = (array) get_option( 'active_plugins', array() );
-		$key    = array_search( $current, $active, true );
+		$changed = false;
 
-		if ( false === $key ) {
+		foreach ( $active as $index => $plugin ) {
+			if ( self::is_our_plugin_basename( $plugin ) && $plugin !== $canonical ) {
+				$active[ $index ] = $canonical;
+				$changed          = true;
+			}
+		}
+
+		if ( $changed ) {
+			update_option( 'active_plugins', array_values( array_unique( $active ) ) );
+		}
+	}
+
+	/**
+	 * Cerca il file principale del plugin in wp-content/plugins.
+	 *
+	 * @return string Percorso assoluto o stringa vuota.
+	 */
+	private static function find_any_installed_main_file() {
+		if ( ! defined( 'WP_PLUGIN_DIR' ) ) {
+			return '';
+		}
+
+		$matches = glob( WP_PLUGIN_DIR . '/*/' . self::PLUGIN_MAIN );
+		if ( empty( $matches ) || ! is_array( $matches ) ) {
+			return '';
+		}
+
+		foreach ( $matches as $path ) {
+			if ( file_exists( $path ) ) {
+				return $path;
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Sposta l'installazione nella cartella canonica casa-vacanza-prenotazioni.
+	 *
+	 * @param array $result Risultato installazione upgrader.
+	 */
+	private static function migrate_to_canonical_folder( $result ) {
+		if ( empty( $result['destination'] ) || ! defined( 'WP_PLUGIN_DIR' ) ) {
 			return;
 		}
 
-		$active[ $key ] = $canonical;
-		update_option( 'active_plugins', array_values( array_unique( $active ) ) );
+		$destination   = wp_normalize_path( $result['destination'] );
+		$canonical_dir = wp_normalize_path( WP_PLUGIN_DIR . '/' . self::STANDARD_FOLDER );
+
+		if ( $destination === $canonical_dir ) {
+			return;
+		}
+
+		if ( ! file_exists( trailingslashit( $destination ) . self::PLUGIN_MAIN ) ) {
+			return;
+		}
+
+		if ( is_dir( $canonical_dir ) ) {
+			if ( is_dir( $canonical_dir . '/.git' ) ) {
+				return;
+			}
+			self::delete_plugin_folder( $canonical_dir );
+		}
+
+		if ( @rename( $destination, $canonical_dir ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			self::maybe_normalize_active_plugin_path();
+		}
 	}
 
 	/**
@@ -540,7 +642,7 @@ class GitHub_Updater {
 	 * @return string|\WP_Error
 	 */
 	public static function fix_source_selection( $source, $remote_source, $upgrader, $hook_extra ) {
-		$is_our_update = ! empty( $hook_extra['plugin'] ) && self::get_plugin_slug() === $hook_extra['plugin'];
+		$is_our_update = ! empty( $hook_extra['plugin'] ) && self::is_our_plugin_basename( $hook_extra['plugin'] );
 		$is_our_upload = empty( $hook_extra['plugin'] ) && self::archive_contains_plugin( $source );
 
 		if ( ! $is_our_update && ! $is_our_upload ) {
@@ -553,11 +655,11 @@ class GitHub_Updater {
 		if ( ! $plugin_root ) {
 			return new \WP_Error(
 				'cvp_bad_zip_structure',
-				__( 'Zip non valido: file principale del plugin non trovato. Scarica casa-vacanza-prenotazioni.zip dalla release GitHub (non il codice sorgente).', 'casa-vacanza-prenotazioni' )
+				__( 'Zip GitHub non valido: usa il file casa-vacanza-prenotazioni.zip allegato alla release (non il codice sorgente).', 'casa-vacanza-prenotazioni' )
 			);
 		}
 
-		$dest_folder = ! empty( $hook_extra['plugin'] ) ? dirname( $hook_extra['plugin'] ) : self::STANDARD_FOLDER;
+		$dest_folder = self::STANDARD_FOLDER;
 
 		return self::align_plugin_folder_name( $plugin_root, $dest_folder, $wp_filesystem );
 	}
@@ -571,7 +673,7 @@ class GitHub_Updater {
 	 * @return bool|\WP_Error
 	 */
 	public static function verify_install( $response, $hook_extra, $result ) {
-		$is_our_update = ! empty( $hook_extra['plugin'] ) && self::get_plugin_slug() === $hook_extra['plugin'];
+		$is_our_update = ! empty( $hook_extra['plugin'] ) && self::is_our_plugin_basename( $hook_extra['plugin'] );
 		$is_our_upload = empty( $hook_extra['plugin'] ) && ! empty( $result['destination'] ) && file_exists( trailingslashit( $result['destination'] ) . self::PLUGIN_MAIN );
 
 		if ( ! $is_our_update && ! $is_our_upload ) {
@@ -582,16 +684,19 @@ class GitHub_Updater {
 			return $response;
 		}
 
+		self::migrate_to_canonical_folder( $result );
+
 		$paths = array(
-			WP_PLUGIN_DIR . '/' . self::get_plugin_slug(),
 			WP_PLUGIN_DIR . '/' . self::get_canonical_plugin_slug(),
+			WP_PLUGIN_DIR . '/' . self::get_plugin_slug(),
+			self::find_any_installed_main_file(),
 		);
 
 		if ( ! empty( $result['destination'] ) ) {
 			$paths[] = trailingslashit( $result['destination'] ) . self::PLUGIN_MAIN;
 		}
 
-		foreach ( array_unique( $paths ) as $plugin_file ) {
+		foreach ( array_filter( array_unique( $paths ) ) as $plugin_file ) {
 			if ( file_exists( $plugin_file ) ) {
 				self::maybe_normalize_active_plugin_path();
 				self::cleanup_stale_install_folders();
@@ -599,10 +704,7 @@ class GitHub_Updater {
 			}
 		}
 
-		return new \WP_Error(
-			'cvp_install_missing',
-			__( 'Installazione non riuscita. Disattiva il plugin, elimina tutte le cartelle casa-vacanza-prenotazioni* in wp-content/plugins e reinstalla lo zip dalla release GitHub.', 'casa-vacanza-prenotazioni' )
-		);
+		return $response;
 	}
 
 	/**
@@ -679,6 +781,34 @@ class GitHub_Updater {
 		}
 
 		@rmdir( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+	}
+
+	/**
+	 * Migra cartelle con nome errato (es. *-main) alla cartella canonica.
+	 */
+	public static function maybe_migrate_install_directory() {
+		if ( ! defined( 'WP_PLUGIN_DIR' ) || ! defined( 'CVP_PLUGIN_DIR' ) ) {
+			return;
+		}
+
+		if ( self::get_plugin_folder() === self::STANDARD_FOLDER ) {
+			return;
+		}
+
+		$canonical_dir = WP_PLUGIN_DIR . '/' . self::STANDARD_FOLDER;
+		$current_dir   = wp_normalize_path( CVP_PLUGIN_DIR );
+
+		if ( ! file_exists( trailingslashit( $current_dir ) . self::PLUGIN_MAIN ) ) {
+			return;
+		}
+
+		if ( is_dir( $canonical_dir ) ) {
+			return;
+		}
+
+		if ( @rename( untrailingslashit( $current_dir ), $canonical_dir ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			self::maybe_normalize_active_plugin_path();
+		}
 	}
 
 	public static function get_update_status( $force_refresh = false ) {

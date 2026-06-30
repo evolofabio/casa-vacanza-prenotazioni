@@ -12,6 +12,11 @@ PROCEDURA SICURA (consigliata)
 4. Carica il file zip dalla release GitHub (NON estrarre manualmente lo zip)
 5. Installa ora → Attiva
 
+METODO CONSIGLIATO — AGGIORNAMENTO DA GITHUB
+- WordPress: Plugin → Aggiorna (usa lo zip allegato alla release, non il codice sorgente)
+- Oppure, se hai clonato il repo: cd wp-content/plugins/casa-vacanza-prenotazioni && git pull
+- Dopo l'aggiornamento la cartella deve chiamarsi esattamente: casa-vacanza-prenotazioni
+
 METODO CONSIGLIATO
 - Usa sempre lo zip dalla pagina Releases: tag v1.1.5 o superiore
 - NON scaricare il branch "main" come zip da GitHub
