@@ -20,6 +20,14 @@ METODO CONSIGLIATO
 STRUTTURA CORRETTA SUL SERVER
 wp-content/plugins/casa-vacanza-prenotazioni/casa-vacanza-prenotazioni.php
 
+ERRORE "Il pacchetto non può essere installato" / AGGIORNAMENTO FALLITO
+- NON usare Plugin → Aggiorna se hai cartelle duplicate o installazioni precedenti errate
+- Disattiva il plugin (se possibile)
+- Elimina TUTTE le cartelle casa-vacanza-prenotazioni* in wp-content/plugins
+- Plugin → Aggiungi nuovo → Carica plugin → scegli casa-vacanza-prenotazioni.zip dalla RELEASE GitHub
+- NON usare lo zip "Source code" di GitHub né zip creati manualmente dal Mac (contengono .git)
+- Attiva il plugin
+
 ERRORE "Il file del plugin non esiste"
 - Il database punta a un percorso eliminato
 - Elimina le cartelle duplicate e reinstalla lo zip

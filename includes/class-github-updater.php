@@ -28,6 +28,7 @@ class GitHub_Updater {
 		add_filter( 'upgrader_pre_install', array( __CLASS__, 'block_git_install_upgrade' ), 10, 2 );
 		add_filter( 'upgrader_source_selection', array( __CLASS__, 'fix_source_selection' ), 10, 4 );
 		add_filter( 'upgrader_post_install', array( __CLASS__, 'verify_install' ), 10, 3 );
+		add_filter( 'upgrader_package_options', array( __CLASS__, 'package_options' ) );
 		add_action( 'admin_init', array( __CLASS__, 'handle_force_check' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'git_update_admin_notice' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'duplicate_install_notice' ) );
@@ -43,6 +44,32 @@ class GitHub_Updater {
 
 	public static function get_repo_url() {
 		return 'https://github.com/' . self::GITHUB_OWNER . '/' . self::GITHUB_REPO;
+	}
+
+	/**
+	 * Percorso canonico del file principale del plugin.
+	 *
+	 * @return string
+	 */
+	public static function get_canonical_plugin_slug() {
+		return self::STANDARD_FOLDER . '/' . self::PLUGIN_MAIN;
+	}
+
+	/**
+	 * Opzioni installazione: evita abort se la cartella di destinazione non è vuota.
+	 *
+	 * @param array $options Opzioni upgrader.
+	 * @return array
+	 */
+	public static function package_options( $options ) {
+		if ( empty( $options['hook_extra']['plugin'] ) || self::get_plugin_slug() !== $options['hook_extra']['plugin'] ) {
+			return $options;
+		}
+
+		$options['clear_destination'] = true;
+		$options['abort_if_destination_exists'] = false;
+
+		return $options;
 	}
 
 	/**
@@ -349,17 +376,10 @@ class GitHub_Updater {
 		return $info;
 	}
 
-	/**
-	 * Individua la cartella radice del plugin nello zip estratto.
-	 *
-	 * @param string              $source     Percorso estratto.
-	 * @param \WP_Filesystem_Base $filesystem Filesystem WP.
-	 * @return string
-	 */
-	private static function find_plugin_root( $source, $filesystem ) {
+	private static function find_plugin_root_native( $source ) {
 		$source = trailingslashit( $source );
 
-		if ( $filesystem->exists( $source . self::PLUGIN_MAIN ) ) {
+		if ( file_exists( $source . self::PLUGIN_MAIN ) ) {
 			return untrailingslashit( $source );
 		}
 
@@ -372,28 +392,142 @@ class GitHub_Updater {
 
 		foreach ( $candidates as $name ) {
 			$path = $source . $name;
-			if ( $filesystem->exists( trailingslashit( $path ) . self::PLUGIN_MAIN ) ) {
+			if ( file_exists( trailingslashit( $path ) . self::PLUGIN_MAIN ) ) {
 				return $path;
 			}
 		}
 
-		$list = $filesystem->dirlist( untrailingslashit( $source ), false, false );
-		if ( ! is_array( $list ) ) {
+		if ( ! is_dir( untrailingslashit( $source ) ) ) {
 			return '';
 		}
 
-		foreach ( $list as $name => $item ) {
-			if ( 'd' !== ( $item['type'] ?? '' ) ) {
+		$items = scandir( untrailingslashit( $source ) );
+		if ( ! is_array( $items ) ) {
+			return '';
+		}
+
+		foreach ( $items as $name ) {
+			if ( '.' === $name || '..' === $name ) {
 				continue;
 			}
 
 			$path = $source . $name;
-			if ( $filesystem->exists( trailingslashit( $path ) . self::PLUGIN_MAIN ) ) {
+			if ( is_dir( $path ) && file_exists( trailingslashit( $path ) . self::PLUGIN_MAIN ) ) {
 				return $path;
 			}
 		}
 
 		return '';
+	}
+
+	/**
+	 * Individua la cartella radice del plugin nello zip estratto.
+	 *
+	 * @param string              $source     Percorso estratto.
+	 * @param \WP_Filesystem_Base $filesystem Filesystem WP.
+	 * @return string
+	 */
+	private static function find_plugin_root( $source, $filesystem ) {
+		$source = trailingslashit( $source );
+
+		if ( $filesystem && $filesystem->exists( $source . self::PLUGIN_MAIN ) ) {
+			return untrailingslashit( $source );
+		}
+
+		$candidates = array(
+			self::STANDARD_FOLDER,
+			self::GITHUB_REPO,
+			self::GITHUB_REPO . '-main',
+			self::GITHUB_REPO . '-master',
+		);
+
+		foreach ( $candidates as $name ) {
+			$path = $source . $name;
+			if ( $filesystem && $filesystem->exists( trailingslashit( $path ) . self::PLUGIN_MAIN ) ) {
+				return $path;
+			}
+		}
+
+		if ( $filesystem ) {
+			$list = $filesystem->dirlist( untrailingslashit( $source ), false, false );
+			if ( is_array( $list ) ) {
+				foreach ( $list as $name => $item ) {
+					if ( 'd' !== ( $item['type'] ?? '' ) ) {
+						continue;
+					}
+
+					$path = $source . $name;
+					if ( $filesystem->exists( trailingslashit( $path ) . self::PLUGIN_MAIN ) ) {
+						return $path;
+					}
+				}
+			}
+		}
+
+		return self::find_plugin_root_native( $source );
+	}
+
+	/**
+	 * Rinomina la cartella estratta per allinearla alla destinazione WordPress.
+	 *
+	 * @param string                    $plugin_root  Percorso radice plugin nello zip.
+	 * @param string                    $dest_folder  Nome cartella destinazione.
+	 * @param \WP_Filesystem_Base|null  $filesystem   Filesystem WP.
+	 * @return string
+	 */
+	private static function align_plugin_folder_name( $plugin_root, $dest_folder, $filesystem ) {
+		$dest_folder = sanitize_file_name( $dest_folder );
+		if ( ! $dest_folder || basename( $plugin_root ) === $dest_folder ) {
+			return $plugin_root;
+		}
+
+		$dest_path = trailingslashit( dirname( $plugin_root ) ) . $dest_folder;
+
+		if ( $filesystem && $filesystem->move( $plugin_root, $dest_path ) ) {
+			return $dest_path;
+		}
+
+		if ( @rename( $plugin_root, $dest_path ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			return $dest_path;
+		}
+
+		return $plugin_root;
+	}
+
+	/**
+	 * Verifica se lo zip estratto contiene questo plugin.
+	 *
+	 * @param string $source Percorso estratto.
+	 * @return bool
+	 */
+	private static function archive_contains_plugin( $source ) {
+		return (bool) self::find_plugin_root_native( $source );
+	}
+
+	/**
+	 * Allinea active_plugins al percorso canonico se i file sono nella cartella standard.
+	 */
+	private static function maybe_normalize_active_plugin_path() {
+		$canonical = self::get_canonical_plugin_slug();
+		$current   = self::get_plugin_slug();
+
+		if ( $current === $canonical ) {
+			return;
+		}
+
+		if ( ! file_exists( WP_PLUGIN_DIR . '/' . $canonical ) ) {
+			return;
+		}
+
+		$active = (array) get_option( 'active_plugins', array() );
+		$key    = array_search( $current, $active, true );
+
+		if ( false === $key ) {
+			return;
+		}
+
+		$active[ $key ] = $canonical;
+		update_option( 'active_plugins', array_values( array_unique( $active ) ) );
 	}
 
 	/**
@@ -406,24 +540,26 @@ class GitHub_Updater {
 	 * @return string|\WP_Error
 	 */
 	public static function fix_source_selection( $source, $remote_source, $upgrader, $hook_extra ) {
-		if ( empty( $hook_extra['plugin'] ) || self::get_plugin_slug() !== $hook_extra['plugin'] ) {
+		$is_our_update = ! empty( $hook_extra['plugin'] ) && self::get_plugin_slug() === $hook_extra['plugin'];
+		$is_our_upload = empty( $hook_extra['plugin'] ) && self::archive_contains_plugin( $source );
+
+		if ( ! $is_our_update && ! $is_our_upload ) {
 			return $source;
 		}
 
 		global $wp_filesystem;
-		if ( ! $wp_filesystem ) {
-			return $source;
-		}
 
 		$plugin_root = self::find_plugin_root( $source, $wp_filesystem );
 		if ( ! $plugin_root ) {
 			return new \WP_Error(
 				'cvp_bad_zip_structure',
-				__( 'Zip aggiornamento non valido: file principale del plugin non trovato.', 'casa-vacanza-prenotazioni' )
+				__( 'Zip non valido: file principale del plugin non trovato. Scarica casa-vacanza-prenotazioni.zip dalla release GitHub (non il codice sorgente).', 'casa-vacanza-prenotazioni' )
 			);
 		}
 
-		return $plugin_root;
+		$dest_folder = ! empty( $hook_extra['plugin'] ) ? dirname( $hook_extra['plugin'] ) : self::STANDARD_FOLDER;
+
+		return self::align_plugin_folder_name( $plugin_root, $dest_folder, $wp_filesystem );
 	}
 
 	/**
@@ -435,7 +571,10 @@ class GitHub_Updater {
 	 * @return bool|\WP_Error
 	 */
 	public static function verify_install( $response, $hook_extra, $result ) {
-		if ( empty( $hook_extra['plugin'] ) || self::get_plugin_slug() !== $hook_extra['plugin'] ) {
+		$is_our_update = ! empty( $hook_extra['plugin'] ) && self::get_plugin_slug() === $hook_extra['plugin'];
+		$is_our_upload = empty( $hook_extra['plugin'] ) && ! empty( $result['destination'] ) && file_exists( trailingslashit( $result['destination'] ) . self::PLUGIN_MAIN );
+
+		if ( ! $is_our_update && ! $is_our_upload ) {
 			return $response;
 		}
 
@@ -443,15 +582,26 @@ class GitHub_Updater {
 			return $response;
 		}
 
-		$plugin_file = WP_PLUGIN_DIR . '/' . self::get_plugin_slug();
-		if ( file_exists( $plugin_file ) ) {
-			self::cleanup_stale_install_folders();
-			return $response;
+		$paths = array(
+			WP_PLUGIN_DIR . '/' . self::get_plugin_slug(),
+			WP_PLUGIN_DIR . '/' . self::get_canonical_plugin_slug(),
+		);
+
+		if ( ! empty( $result['destination'] ) ) {
+			$paths[] = trailingslashit( $result['destination'] ) . self::PLUGIN_MAIN;
+		}
+
+		foreach ( array_unique( $paths ) as $plugin_file ) {
+			if ( file_exists( $plugin_file ) ) {
+				self::maybe_normalize_active_plugin_path();
+				self::cleanup_stale_install_folders();
+				return $response;
+			}
 		}
 
 		return new \WP_Error(
 			'cvp_install_missing',
-			__( 'Aggiornamento non riuscito: il plugin non è stato trovato dopo l\'installazione. Reinstalla manualmente lo zip dalla release GitHub (cartella casa-vacanza-prenotazioni).', 'casa-vacanza-prenotazioni' )
+			__( 'Installazione non riuscita. Disattiva il plugin, elimina tutte le cartelle casa-vacanza-prenotazioni* in wp-content/plugins e reinstalla lo zip dalla release GitHub.', 'casa-vacanza-prenotazioni' )
 		);
 	}
 
@@ -467,6 +617,8 @@ class GitHub_Updater {
 		$patterns      = array(
 			self::GITHUB_REPO . '-main',
 			self::GITHUB_REPO . '-master',
+			self::GITHUB_REPO . '-old',
+			self::GITHUB_REPO . '-OFF',
 		);
 
 		foreach ( $patterns as $folder ) {
