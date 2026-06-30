@@ -80,6 +80,13 @@ $availability = \CVP\Availability::get_frontend_availability( $apartment_id );
 			<textarea id="cvp_bf_note_<?php echo esc_attr( $apartment_id ); ?>" name="customer_note" rows="3"></textarea>
 		</div>
 
+		<div class="cvp-form-field cvp-form-field--checkbox">
+			<label class="cvp-checkbox-label" for="cvp_bf_privacy_<?php echo esc_attr( $apartment_id ); ?>">
+				<input type="checkbox" id="cvp_bf_privacy_<?php echo esc_attr( $apartment_id ); ?>" name="privacy_consent" value="1" required />
+				<span><?php echo wp_kses_post( \CVP\Privacy::get_consent_label() ); ?></span>
+			</label>
+		</div>
+
 		<div class="cvp-form-message" role="alert" hidden></div>
 
 		<button type="submit" class="cvp-btn cvp-btn--primary cvp-btn--block">

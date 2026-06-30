@@ -48,10 +48,14 @@ class Assets {
 					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 					'nonce'   => wp_create_nonce( 'cvp_frontend' ),
 					'i18n'    => array(
-						'sending' => __( 'Invio in corso...', 'casa-vacanza-prenotazioni' ),
-						'submit'  => __( 'Invia richiesta', 'casa-vacanza-prenotazioni' ),
-						'error'   => __( 'Si è verificato un errore. Riprova.', 'casa-vacanza-prenotazioni' ),
-						'book'    => __( 'Richiedi prenotazione', 'casa-vacanza-prenotazioni' ),
+						'sending'         => __( 'Invio in corso...', 'casa-vacanza-prenotazioni' ),
+						'submit'          => __( 'Invia richiesta', 'casa-vacanza-prenotazioni' ),
+						'error'           => __( 'Si è verificato un errore. Riprova.', 'casa-vacanza-prenotazioni' ),
+						'book'            => __( 'Richiedi prenotazione', 'casa-vacanza-prenotazioni' ),
+						'datesBlocked'    => __( 'Le date selezionate non sono disponibili.', 'casa-vacanza-prenotazioni' ),
+						'invalidRange'    => __( 'Il check-out deve essere successivo al check-in.', 'casa-vacanza-prenotazioni' ),
+						'minNights'       => __( 'Soggiorno minimo di %d notti.', 'casa-vacanza-prenotazioni' ),
+						'privacyRequired' => __( 'Devi accettare l\'informativa sulla privacy.', 'casa-vacanza-prenotazioni' ),
 					),
 				)
 			);

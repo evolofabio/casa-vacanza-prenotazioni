@@ -12,6 +12,8 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 delete_option( 'cvp_settings' );
 delete_option( 'cvp_caps_version' );
 
+wp_clear_scheduled_hook( 'cvp_expire_pending_bookings' );
+
 $gestore = get_role( 'cvp_gestore' );
 if ( $gestore ) {
 	remove_role( 'cvp_gestore' );

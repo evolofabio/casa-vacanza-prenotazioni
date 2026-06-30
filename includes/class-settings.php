@@ -31,6 +31,8 @@ class Settings {
 			'currency_symbol'                 => '€',
 			'currency_position'               => 'after',
 			'min_nights'                      => 2,
+			'pending_hold_hours'              => 48,
+			'privacy_policy_page'             => 0,
 			'from_email'                      => get_option( 'admin_email' ),
 			'from_name'                       => get_bloginfo( 'name' ),
 			'operator_email'                  => get_option( 'admin_email' ),
@@ -113,6 +115,14 @@ class Settings {
 
 		if ( isset( $input['cvp_risultati_page'] ) ) {
 			$output['cvp_risultati_page'] = absint( $input['cvp_risultati_page'] );
+		}
+
+		if ( isset( $input['pending_hold_hours'] ) ) {
+			$output['pending_hold_hours'] = max( 0, absint( $input['pending_hold_hours'] ) );
+		}
+
+		if ( isset( $input['privacy_policy_page'] ) ) {
+			$output['privacy_policy_page'] = absint( $input['privacy_policy_page'] );
 		}
 
 		return $output;

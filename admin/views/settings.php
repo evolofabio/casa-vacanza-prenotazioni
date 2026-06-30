@@ -88,6 +88,25 @@ $placeholders = '{nome}, {email}, {appartamento}, {check_in}, {check_out}, {ospi
 					</select>
 				</td>
 			</tr>
+			<tr>
+				<th><label for="cvp_pending_hold_hours"><?php esc_html_e( 'Scadenza richieste in attesa', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<td>
+					<input type="number" min="0" step="1" id="cvp_pending_hold_hours" name="cvp_settings[pending_hold_hours]" value="<?php echo esc_attr( $settings['pending_hold_hours'] ); ?>" class="small-text" />
+					<p class="description"><?php esc_html_e( 'Ore dopo le quali una richiesta non confermata viene rifiutata automaticamente e le date tornano libere. 0 = disabilitato.', 'casa-vacanza-prenotazioni' ); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="cvp_privacy_policy_page"><?php esc_html_e( 'Pagina privacy (fallback)', 'casa-vacanza-prenotazioni' ); ?></label></th>
+				<td>
+					<select id="cvp_privacy_policy_page" name="cvp_settings[privacy_policy_page]">
+						<option value="0"><?php esc_html_e( '— Usa impostazione WordPress —', 'casa-vacanza-prenotazioni' ); ?></option>
+						<?php foreach ( $pages as $page ) : ?>
+							<option value="<?php echo esc_attr( $page->ID ); ?>" <?php selected( $settings['privacy_policy_page'], $page->ID ); ?>><?php echo esc_html( $page->post_title ); ?></option>
+						<?php endforeach; ?>
+					</select>
+					<p class="description"><?php esc_html_e( 'Usata nel form se non è impostata una pagina privacy in Impostazioni → Privacy.', 'casa-vacanza-prenotazioni' ); ?></p>
+				</td>
+			</tr>
 		</table>
 
 		<h2 class="title"><?php esc_html_e( 'Email', 'casa-vacanza-prenotazioni' ); ?></h2>

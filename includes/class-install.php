@@ -146,6 +146,7 @@ class Install {
 		Roles::create_role();
 		Post_Types::register();
 		Roles::maybe_add_caps_to_admin();
+		Booking_Expiry::maybe_schedule_cron();
 		flush_rewrite_rules();
 		Activator::create_pages();
 	}

@@ -105,6 +105,8 @@ REQUIRED=(
 	"uninstall.php"
 	"includes/class-plugin.php"
 	"includes/class-pricing.php"
+	"includes/class-booking-expiry.php"
+	"includes/class-privacy.php"
 	"includes/class-github-updater.php"
 	"public/css/public.css"
 	"public/js/public.js"
@@ -181,6 +183,19 @@ if ! grep -q 'WP_UNINSTALL_PLUGIN' uninstall.php; then
 	fail "uninstall.php non valido"
 else
 	pass "uninstall.php presente"
+fi
+
+echo
+if [[ "$ERRORS" -gt 0 ]]; then
+	echo "=== RISULTATO: $ERRORS errori — RELEASE BLOCCATA ===" >&2
+	exit 1
+fi
+
+echo "--- v1.3 feature checks ---"
+if bash scripts/test-v13.sh; then
+	pass "Test funzionali v1.3.0"
+else
+	fail "Test funzionali v1.3.0 falliti"
 fi
 
 echo

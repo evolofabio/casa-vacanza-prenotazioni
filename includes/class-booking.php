@@ -108,6 +108,14 @@ class Booking {
 			return new \WP_Error( 'invalid_customer', __( 'Inserisci nome e email validi.', 'casa-vacanza-prenotazioni' ) );
 		}
 
+		$privacy_consent = ! empty( $data['privacy_consent'] );
+		if ( ! $privacy_consent ) {
+			return new \WP_Error(
+				'privacy_consent',
+				__( 'Devi accettare l\'informativa sulla privacy per inviare la richiesta.', 'casa-vacanza-prenotazioni' )
+			);
+		}
+
 		if ( ! Availability::is_available( $apartment_id, $check_in, $check_out ) ) {
 			return new \WP_Error( 'not_available', __( 'Le date selezionate non sono più disponibili.', 'casa-vacanza-prenotazioni' ) );
 		}
@@ -150,6 +158,10 @@ class Booking {
 		update_post_meta( $booking_id, '_cvp_customer_phone', $phone );
 		update_post_meta( $booking_id, '_cvp_customer_note', $note );
 		update_post_meta( $booking_id, '_cvp_total_price', $pricing['total'] );
+		update_post_meta( $booking_id, '_cvp_privacy_consent', '1' );
+		update_post_meta( $booking_id, '_cvp_privacy_consent_at', current_time( 'mysql' ) );
+
+		Booking_Expiry::set_expiry( $booking_id );
 
 		Emails::send_customer_request_received( $booking_id );
 		Emails::send_operator_new_request( $booking_id );
